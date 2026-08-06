@@ -25,6 +25,7 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 		users := api.Group("/users")
 		{
 			users.GET("", userHandler.GetUsers)
+			users.GET("/me", userHandler.Me)
 			users.GET("/:id", userHandler.GetUser)
 			users.PUT("/:id", userHandler.UpdateUser)
 			users.DELETE("/:id", userHandler.DeleteUser)
