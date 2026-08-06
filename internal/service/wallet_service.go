@@ -17,7 +17,7 @@ import (
 type WalletService interface {
 	CreateWallet(ctx context.Context, userID uuid.UUID, req *model.CreateWalletRequest) (*model.Wallet, error)
 	GetWalletByID(ctx context.Context, id, userID uuid.UUID) (*model.Wallet, error)
-	GetAllWallets(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) ([]*model.Wallet, error)
+	GetAllWallets(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) ([]*model.Wallet, int, error)
 	UpdateWallet(ctx context.Context, id, userID uuid.UUID, req *model.UpdateWalletRequest) (*model.Wallet, error)
 	DeleteWallet(ctx context.Context, id, userID uuid.UUID) error
 }
@@ -93,12 +93,16 @@ func (s *walletService) GetWalletByID(ctx context.Context, id, userID uuid.UUID)
 	return wallet, nil
 }
 
-func (s *walletService) GetAllWallets(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) ([]*model.Wallet, error) {
+func (s *walletService) GetAllWallets(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) ([]*model.Wallet, int, error) {
 	wallets, err := s.repo.GetByUserID(ctx, q, userID)
 	if err != nil {
-		return nil, errors.New("failed to retrieve wallets")
+		return nil, 0, errors.New("failed to retrieve wallets")
 	}
-	return wallets, nil
+	total, err := s.repo.CountByUserID(ctx, q, userID)
+	if err != nil {
+		return nil, 0, errors.New("failed to count wallets")
+	}
+	return wallets, total, nil
 }
 
 func (s *walletService) UpdateWallet(ctx context.Context, id, userID uuid.UUID, req *model.UpdateWalletRequest) (*model.Wallet, error) {

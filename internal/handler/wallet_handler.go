@@ -57,13 +57,16 @@ func (h *WalletHandler) GetWallets(c *gin.Context) {
 		c.Query("order"),
 	)
 
-	wallets, err := h.svc.GetAllWallets(c.Request.Context(), q, userID)
+	wallets, total, err := h.svc.GetAllWallets(c.Request.Context(), q, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": wallets})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       wallets,
+		"pagination": model.NewPagination(total, q.Limit, q.Offset),
+	})
 }
 
 func (h *WalletHandler) GetWallet(c *gin.Context) {

@@ -15,6 +15,7 @@ type CardRepository interface {
 	Create(ctx context.Context, card *model.Card) error
 	GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Card, error)
 	GetByUserID(ctx context.Context, q *model.CardQuery, userID uuid.UUID) ([]*model.Card, error)
+	CountByUserID(ctx context.Context, q *model.CardQuery, userID uuid.UUID) (int, error)
 	Update(ctx context.Context, card *model.Card) error
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 }
@@ -105,6 +106,29 @@ func (r *cardRepository) GetByUserID(ctx context.Context, q *model.CardQuery, us
 		cards = append(cards, card)
 	}
 	return cards, nil
+}
+
+func (r *cardRepository) CountByUserID(ctx context.Context, q *model.CardQuery, userID uuid.UUID) (int, error) {
+	var conditions []string
+	var args []interface{}
+	argPos := 1
+
+	conditions = append(conditions, fmt.Sprintf("user_id = $%d", argPos))
+	args = append(args, userID)
+	argPos++
+
+	if q.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("bank ILIKE $%d", argPos))
+		args = append(args, "%"+q.Search+"%")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM cards WHERE %s
+	`, strings.Join(conditions, " AND "))
+
+	var total int
+	err := r.db.QueryRow(ctx, query, args...).Scan(&total)
+	return total, err
 }
 
 func (r *cardRepository) Update(ctx context.Context, card *model.Card) error {

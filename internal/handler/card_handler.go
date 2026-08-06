@@ -57,13 +57,16 @@ func (h *CardHandler) GetCards(c *gin.Context) {
 		c.Query("order"),
 	)
 
-	cards, err := h.svc.GetAllCards(c.Request.Context(), q, userID)
+	cards, total, err := h.svc.GetAllCards(c.Request.Context(), q, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": cards})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       cards,
+		"pagination": model.NewPagination(total, q.Limit, q.Offset),
+	})
 }
 
 func (h *CardHandler) GetCard(c *gin.Context) {

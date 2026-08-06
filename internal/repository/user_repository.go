@@ -14,6 +14,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*model.User, error)
 	GetByEmail(ctx context.Context, email string) (*model.User, error)
 	GetAll(ctx context.Context, limit, offset int) ([]*model.User, error)
+	Count(ctx context.Context) (int, error)
 	Update(ctx context.Context, user *model.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -95,6 +96,12 @@ func (r *userRepository) GetAll(ctx context.Context, limit, offset int) ([]*mode
 		users = append(users, user)
 	}
 	return users, nil
+}
+
+func (r *userRepository) Count(ctx context.Context) (int, error) {
+	var total int
+	err := r.db.QueryRow(ctx, `SELECT COUNT(*) FROM users`).Scan(&total)
+	return total, err
 }
 
 func (r *userRepository) Update(ctx context.Context, user *model.User) error {

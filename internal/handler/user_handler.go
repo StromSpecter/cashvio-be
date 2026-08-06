@@ -55,14 +55,20 @@ func (h *UserHandler) Login(c *gin.Context) {
 func (h *UserHandler) GetUsers(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
 
-	users, err := h.svc.GetAllUsers(c.Request.Context(), limit, offset)
+	users, total, err := h.svc.GetAllUsers(c.Request.Context(), limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": users})
+	c.JSON(http.StatusOK, gin.H{
+		"data":       users,
+		"pagination": model.NewPagination(total, limit, offset),
+	})
 }
 
 func (h *UserHandler) GetUser(c *gin.Context) {

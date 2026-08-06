@@ -16,7 +16,7 @@ import (
 type UserService interface {
 	CreateUser(ctx context.Context, req *model.CreateUserRequest) (*model.User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (*model.User, error)
-	GetAllUsers(ctx context.Context, limit, offset int) ([]*model.User, error)
+	GetAllUsers(ctx context.Context, limit, offset int) ([]*model.User, int, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, req *model.UpdateUserRequest) (*model.User, error)
 	DeleteUser(ctx context.Context, id uuid.UUID) error
 	Login(ctx context.Context, req *model.LoginRequest) (*model.LoginResponse, error)
@@ -70,15 +70,19 @@ func (s *userService) GetUserByID(ctx context.Context, id uuid.UUID) (*model.Use
 	return user, nil
 }
 
-func (s *userService) GetAllUsers(ctx context.Context, limit, offset int) ([]*model.User, error) {
+func (s *userService) GetAllUsers(ctx context.Context, limit, offset int) ([]*model.User, int, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 10
 	}
 	users, err := s.repo.GetAll(ctx, limit, offset)
 	if err != nil {
-		return nil, errors.New("failed to retrieve users")
+		return nil, 0, errors.New("failed to retrieve users")
 	}
-	return users, nil
+	total, err := s.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, errors.New("failed to count users")
+	}
+	return users, total, nil
 }
 
 func (s *userService) UpdateUser(ctx context.Context, id uuid.UUID, req *model.UpdateUserRequest) (*model.User, error) {

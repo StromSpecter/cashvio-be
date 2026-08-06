@@ -17,7 +17,7 @@ import (
 type CardService interface {
 	CreateCard(ctx context.Context, userID uuid.UUID, req *model.CreateCardRequest) (*model.Card, error)
 	GetCardByID(ctx context.Context, id, userID uuid.UUID) (*model.Card, error)
-	GetAllCards(ctx context.Context, q *model.CardQuery, userID uuid.UUID) ([]*model.Card, error)
+	GetAllCards(ctx context.Context, q *model.CardQuery, userID uuid.UUID) ([]*model.Card, int, error)
 	UpdateCard(ctx context.Context, id, userID uuid.UUID, req *model.UpdateCardRequest) (*model.Card, error)
 	DeleteCard(ctx context.Context, id, userID uuid.UUID) error
 }
@@ -91,12 +91,16 @@ func (s *cardService) GetCardByID(ctx context.Context, id, userID uuid.UUID) (*m
 	return card, nil
 }
 
-func (s *cardService) GetAllCards(ctx context.Context, q *model.CardQuery, userID uuid.UUID) ([]*model.Card, error) {
+func (s *cardService) GetAllCards(ctx context.Context, q *model.CardQuery, userID uuid.UUID) ([]*model.Card, int, error) {
 	cards, err := s.repo.GetByUserID(ctx, q, userID)
 	if err != nil {
-		return nil, errors.New("failed to retrieve cards")
+		return nil, 0, errors.New("failed to retrieve cards")
 	}
-	return cards, nil
+	total, err := s.repo.CountByUserID(ctx, q, userID)
+	if err != nil {
+		return nil, 0, errors.New("failed to count cards")
+	}
+	return cards, total, nil
 }
 
 func (s *cardService) UpdateCard(ctx context.Context, id, userID uuid.UUID, req *model.UpdateCardRequest) (*model.Card, error) {

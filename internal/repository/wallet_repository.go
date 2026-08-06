@@ -15,6 +15,7 @@ type WalletRepository interface {
 	Create(ctx context.Context, wallet *model.Wallet) error
 	GetByID(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*model.Wallet, error)
 	GetByUserID(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) ([]*model.Wallet, error)
+	CountByUserID(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) (int, error)
 	Update(ctx context.Context, wallet *model.Wallet) error
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 }
@@ -108,6 +109,29 @@ func (r *walletRepository) GetByUserID(ctx context.Context, q *model.WalletQuery
 		wallets = append(wallets, wallet)
 	}
 	return wallets, nil
+}
+
+func (r *walletRepository) CountByUserID(ctx context.Context, q *model.WalletQuery, userID uuid.UUID) (int, error) {
+	var conditions []string
+	var args []interface{}
+	argPos := 1
+
+	conditions = append(conditions, fmt.Sprintf("user_id = $%d", argPos))
+	args = append(args, userID)
+	argPos++
+
+	if q.Search != "" {
+		conditions = append(conditions, fmt.Sprintf("name ILIKE $%d", argPos))
+		args = append(args, "%"+q.Search+"%")
+	}
+
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM wallets WHERE %s
+	`, strings.Join(conditions, " AND "))
+
+	var total int
+	err := r.db.QueryRow(ctx, query, args...).Scan(&total)
+	return total, err
 }
 
 func (r *walletRepository) Update(ctx context.Context, wallet *model.Wallet) error {
