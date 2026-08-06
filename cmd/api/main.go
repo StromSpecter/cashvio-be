@@ -56,7 +56,11 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo)
 	walletHandler := handler.NewWalletHandler(walletSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler)
+	transactionRepo := repository.NewTransactionRepository(dbPool)
+	transactionSvc := service.NewTransactionService(transactionRepo, dbPool, walletRepo, cardRepo)
+	transactionHandler := handler.NewTransactionHandler(transactionSvc, cfg)
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -117,6 +121,20 @@ func runMigrations(pool *pgxpool.Pool) error {
 			tone VARCHAR(200),
 			status VARCHAR(20) NOT NULL DEFAULT 'active',
 			"primary" BOOLEAN NOT NULL DEFAULT false,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS transactions (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			name VARCHAR(100) NOT NULL,
+			amount DECIMAL(16,2) NOT NULL,
+			type VARCHAR(10) NOT NULL CHECK (type IN ('income','expense')),
+			category VARCHAR(30) NOT NULL CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer')),
+			status VARCHAR(20) NOT NULL DEFAULT 'completed' CHECK (status IN ('completed','pending','failed')),
+			account_type VARCHAR(10) NOT NULL CHECK (account_type IN ('wallet','card')),
+			account_id UUID NOT NULL,
+			date DATE NOT NULL DEFAULT CURRENT_DATE,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
