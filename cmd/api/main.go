@@ -61,15 +61,13 @@ func main() {
 	transactionHandler := handler.NewTransactionHandler(transactionSvc, cfg)
 
 	categoryBudgetRepo := repository.NewCategoryBudgetRepository(dbPool)
-
-	budgetRepo := repository.NewBudgetRepository(dbPool)
-	budgetSvc := service.NewBudgetService(budgetRepo, transactionRepo, categoryBudgetRepo)
-	budgetHandler := handler.NewBudgetHandler(budgetSvc, cfg)
-
-	categoryBudgetSvc := service.NewCategoryBudgetService(categoryBudgetRepo, budgetRepo)
+	categoryBudgetSvc := service.NewCategoryBudgetService(categoryBudgetRepo)
 	categoryBudgetHandler := handler.NewCategoryBudgetHandler(categoryBudgetSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, budgetHandler, categoryBudgetHandler)
+	budgetOverviewSvc := service.NewBudgetOverviewService(transactionRepo, categoryBudgetRepo)
+	budgetOverviewHandler := handler.NewBudgetOverviewHandler(budgetOverviewSvc, cfg)
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, budgetOverviewHandler, categoryBudgetHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -147,19 +145,9 @@ func runMigrations(pool *pgxpool.Pool) error {
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE TABLE IF NOT EXISTS budgets (
-			id UUID PRIMARY KEY,
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			amount DECIMAL(16,2) NOT NULL,
-			note VARCHAR(255),
-			month VARCHAR(20),
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-		)`,
 		`CREATE TABLE IF NOT EXISTS category_budgets (
 			id UUID PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			budget_id UUID REFERENCES budgets(id) ON DELETE CASCADE,
 			name VARCHAR(100) NOT NULL,
 			type VARCHAR(10) NOT NULL CHECK (type IN ('percent','amount')),
 			percent DECIMAL(8,2),
@@ -170,6 +158,8 @@ func runMigrations(pool *pgxpool.Pool) error {
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`ALTER TABLE category_budgets DROP COLUMN IF EXISTS budget_id`,
+		`DROP TABLE IF EXISTS budgets CASCADE`,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

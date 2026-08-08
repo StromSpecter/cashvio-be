@@ -29,6 +29,7 @@ type TransactionRepository interface {
 	DeleteTx(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) error
 	AdjustBalanceTx(ctx context.Context, tx pgx.Tx, accountType string, accountID, userID uuid.UUID, delta float64) error
 	SumExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error)
+	SumIncomeByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error)
 }
 
 type transactionRepository struct {
@@ -222,6 +223,17 @@ func (r *transactionRepository) SumExpenseByPeriod(ctx context.Context, userID u
 		SELECT COALESCE(SUM(amount), 0)
 		FROM transactions
 		WHERE user_id = $1 AND type = 'expense' AND date >= $2 AND date < $3
+	`
+	var total float64
+	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(&total)
+	return total, err
+}
+
+func (r *transactionRepository) SumIncomeByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transactions
+		WHERE user_id = $1 AND type = 'income' AND category = 'income' AND status = 'completed' AND date >= $2 AND date < $3
 	`
 	var total float64
 	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(&total)

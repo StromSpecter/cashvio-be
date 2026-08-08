@@ -22,15 +22,14 @@ type CategoryBudgetService interface {
 }
 
 type categoryBudgetService struct {
-	repo       repository.CategoryBudgetRepository
-	budgetRepo repository.BudgetRepository
+	repo repository.CategoryBudgetRepository
 }
 
-func NewCategoryBudgetService(repo repository.CategoryBudgetRepository, budgetRepo repository.BudgetRepository) CategoryBudgetService {
-	return &categoryBudgetService{repo: repo, budgetRepo: budgetRepo}
+func NewCategoryBudgetService(repo repository.CategoryBudgetRepository) CategoryBudgetService {
+	return &categoryBudgetService{repo: repo}
 }
 
-func ParseCategoryBudgetQuery(c_query *model.CategoryBudgetQuery, limit, offset, search, sortBy, order, budgetID, t string) *model.CategoryBudgetQuery {
+func ParseCategoryBudgetQuery(c_query *model.CategoryBudgetQuery, limit, offset, search, sortBy, order, t string) *model.CategoryBudgetQuery {
 	c_query.Search = search
 	c_query.SortBy = sortBy
 	c_query.Order = order
@@ -50,10 +49,6 @@ func ParseCategoryBudgetQuery(c_query *model.CategoryBudgetQuery, limit, offset,
 		c_query.Offset = o
 	}
 
-	if id, err := uuid.Parse(budgetID); err == nil {
-		c_query.BudgetID = &id
-	}
-
 	if c_query.SortBy == "" {
 		c_query.SortBy = "created_at"
 	}
@@ -65,17 +60,10 @@ func ParseCategoryBudgetQuery(c_query *model.CategoryBudgetQuery, limit, offset,
 }
 
 func (s *categoryBudgetService) CreateCategoryBudget(ctx context.Context, userID uuid.UUID, req *model.CreateCategoryBudgetRequest) (*model.CategoryBudget, error) {
-	if req.BudgetID != nil {
-		if err := s.validateBudget(ctx, *req.BudgetID, userID); err != nil {
-			return nil, err
-		}
-	}
-
 	now := time.Now()
 	cat := &model.CategoryBudget{
 		ID:        uuid.New(),
 		UserID:    userID,
-		BudgetID:  req.BudgetID,
 		Name:      strings.TrimSpace(req.Name),
 		Type:      req.Type,
 		Color:     defaultCategoryColor(req.Color),
@@ -125,12 +113,6 @@ func (s *categoryBudgetService) UpdateCategoryBudget(ctx context.Context, id, us
 		return nil, errors.New("failed to get budget category")
 	}
 
-	if req.BudgetID != nil {
-		if err := s.validateBudget(ctx, *req.BudgetID, userID); err != nil {
-			return nil, err
-		}
-		cat.BudgetID = req.BudgetID
-	}
 	if req.Name != "" {
 		cat.Name = strings.TrimSpace(req.Name)
 	}
@@ -178,16 +160,6 @@ func (s *categoryBudgetService) DeleteCategoryBudget(ctx context.Context, id, us
 
 	if err := s.repo.Delete(ctx, id, userID); err != nil {
 		return errors.New("failed to delete budget category")
-	}
-	return nil
-}
-
-func (s *categoryBudgetService) validateBudget(ctx context.Context, budgetID, userID uuid.UUID) error {
-	if _, err := s.budgetRepo.GetByID(ctx, budgetID, userID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errors.New("budget not found")
-		}
-		return errors.New("failed to validate budget")
 	}
 	return nil
 }

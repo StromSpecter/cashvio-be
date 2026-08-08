@@ -30,11 +30,11 @@ func NewCategoryBudgetRepository(db *pgxpool.Pool) CategoryBudgetRepository {
 
 func (r *categoryBudgetRepository) Create(ctx context.Context, cat *model.CategoryBudget) error {
 	query := `
-		INSERT INTO category_budgets (id, user_id, budget_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO category_budgets (id, user_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 	_, err := r.db.Exec(ctx, query,
-		cat.ID, cat.UserID, cat.BudgetID, cat.Name, cat.Type,
+		cat.ID, cat.UserID, cat.Name, cat.Type,
 		cat.Percent, cat.Amount, cat.Color, cat.Icon, cat.Desc,
 		cat.CreatedAt, cat.UpdatedAt,
 	)
@@ -43,12 +43,12 @@ func (r *categoryBudgetRepository) Create(ctx context.Context, cat *model.Catego
 
 func (r *categoryBudgetRepository) GetByID(ctx context.Context, id, userID uuid.UUID) (*model.CategoryBudget, error) {
 	query := `
-		SELECT id, user_id, budget_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at
+		SELECT id, user_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at
 		FROM category_budgets WHERE id = $1 AND user_id = $2
 	`
 	cat := &model.CategoryBudget{}
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
-		&cat.ID, &cat.UserID, &cat.BudgetID, &cat.Name, &cat.Type,
+		&cat.ID, &cat.UserID, &cat.Name, &cat.Type,
 		&cat.Percent, &cat.Amount, &cat.Color, &cat.Icon, &cat.Desc,
 		&cat.CreatedAt, &cat.UpdatedAt,
 	)
@@ -71,7 +71,7 @@ func (r *categoryBudgetRepository) GetByUserID(ctx context.Context, q *model.Cat
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, user_id, budget_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at
+		SELECT id, user_id, name, type, percent, amount, color, icon, "desc", created_at, updated_at
 		FROM category_budgets WHERE %s
 		ORDER BY %s %s LIMIT $%d OFFSET $%d
 	`, strings.Join(conditions, " AND "), sortCol, order, argPos, argPos+1)
@@ -87,7 +87,7 @@ func (r *categoryBudgetRepository) GetByUserID(ctx context.Context, q *model.Cat
 	for rows.Next() {
 		cat := &model.CategoryBudget{}
 		err := rows.Scan(
-			&cat.ID, &cat.UserID, &cat.BudgetID, &cat.Name, &cat.Type,
+			&cat.ID, &cat.UserID, &cat.Name, &cat.Type,
 			&cat.Percent, &cat.Amount, &cat.Color, &cat.Icon, &cat.Desc,
 			&cat.CreatedAt, &cat.UpdatedAt,
 		)
@@ -120,12 +120,6 @@ func (r *categoryBudgetRepository) buildConditions(q *model.CategoryBudgetQuery,
 	args = append(args, userID)
 	argPos++
 
-	if q.BudgetID != nil {
-		conditions = append(conditions, fmt.Sprintf("budget_id = $%d", argPos))
-		args = append(args, *q.BudgetID)
-		argPos++
-	}
-
 	if q.Search != "" {
 		conditions = append(conditions, fmt.Sprintf("name ILIKE $%d", argPos))
 		args = append(args, "%"+q.Search+"%")
@@ -143,12 +137,12 @@ func (r *categoryBudgetRepository) buildConditions(q *model.CategoryBudgetQuery,
 
 func (r *categoryBudgetRepository) Update(ctx context.Context, cat *model.CategoryBudget) error {
 	query := `
-		UPDATE category_budgets SET budget_id = $1, name = $2, type = $3, percent = $4, amount = $5,
-		color = $6, icon = $7, "desc" = $8, updated_at = $9
-		WHERE id = $10 AND user_id = $11
+		UPDATE category_budgets SET name = $1, type = $2, percent = $3, amount = $4,
+		color = $5, icon = $6, "desc" = $7, updated_at = $8
+		WHERE id = $9 AND user_id = $10
 	`
 	_, err := r.db.Exec(ctx, query,
-		cat.BudgetID, cat.Name, cat.Type, cat.Percent, cat.Amount,
+		cat.Name, cat.Type, cat.Percent, cat.Amount,
 		cat.Color, cat.Icon, cat.Desc, time.Now(),
 		cat.ID, cat.UserID,
 	)

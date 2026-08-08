@@ -55,7 +55,6 @@ func (h *CategoryBudgetHandler) GetCategoryBudgets(c *gin.Context) {
 		c.Query("search"),
 		c.Query("sort_by"),
 		c.Query("order"),
-		c.Query("budget_id"),
 		c.Query("type"),
 	)
 
