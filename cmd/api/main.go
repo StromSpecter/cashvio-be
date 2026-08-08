@@ -60,7 +60,16 @@ func main() {
 	transactionSvc := service.NewTransactionService(transactionRepo, dbPool, walletRepo, cardRepo)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler)
+	categoryBudgetRepo := repository.NewCategoryBudgetRepository(dbPool)
+
+	budgetRepo := repository.NewBudgetRepository(dbPool)
+	budgetSvc := service.NewBudgetService(budgetRepo, transactionRepo, categoryBudgetRepo)
+	budgetHandler := handler.NewBudgetHandler(budgetSvc, cfg)
+
+	categoryBudgetSvc := service.NewCategoryBudgetService(categoryBudgetRepo, budgetRepo)
+	categoryBudgetHandler := handler.NewCategoryBudgetHandler(categoryBudgetSvc, cfg)
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, budgetHandler, categoryBudgetHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -135,6 +144,29 @@ func runMigrations(pool *pgxpool.Pool) error {
 			account_type VARCHAR(10) NOT NULL CHECK (account_type IN ('wallet','card')),
 			account_id UUID NOT NULL,
 			date DATE NOT NULL DEFAULT CURRENT_DATE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS budgets (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			amount DECIMAL(16,2) NOT NULL,
+			note VARCHAR(255),
+			month VARCHAR(20),
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS category_budgets (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			budget_id UUID REFERENCES budgets(id) ON DELETE CASCADE,
+			name VARCHAR(100) NOT NULL,
+			type VARCHAR(10) NOT NULL CHECK (type IN ('percent','amount')),
+			percent DECIMAL(8,2),
+			amount DECIMAL(16,2),
+			color INT NOT NULL DEFAULT 1,
+			icon VARCHAR(50) NOT NULL DEFAULT 'home',
+			"desc" VARCHAR(255),
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,

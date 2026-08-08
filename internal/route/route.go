@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler) *gin.Engine {
+func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, budgetHandler *handler.BudgetHandler, categoryBudgetHandler *handler.CategoryBudgetHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(middleware.RecoveryMiddleware())
@@ -56,6 +56,25 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 			transactions.GET("/:id", transactionHandler.GetTransaction)
 			transactions.PUT("/:id", transactionHandler.UpdateTransaction)
 			transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+		}
+
+		budgets := api.Group("/budgets")
+		{
+			budgets.POST("", budgetHandler.CreateBudget)
+			budgets.GET("", budgetHandler.GetBudgets)
+			budgets.GET("/overview", budgetHandler.GetBudgetOverview)
+			budgets.GET("/:id", budgetHandler.GetBudget)
+			budgets.PUT("/:id", budgetHandler.UpdateBudget)
+			budgets.DELETE("/:id", budgetHandler.DeleteBudget)
+		}
+
+		categoryBudgets := api.Group("/category-budgets")
+		{
+			categoryBudgets.POST("", categoryBudgetHandler.CreateCategoryBudget)
+			categoryBudgets.GET("", categoryBudgetHandler.GetCategoryBudgets)
+			categoryBudgets.GET("/:id", categoryBudgetHandler.GetCategoryBudget)
+			categoryBudgets.PUT("/:id", categoryBudgetHandler.UpdateCategoryBudget)
+			categoryBudgets.DELETE("/:id", categoryBudgetHandler.DeleteCategoryBudget)
 		}
 	}
 

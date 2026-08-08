@@ -28,6 +28,7 @@ type TransactionRepository interface {
 	Delete(ctx context.Context, id, userID uuid.UUID) error
 	DeleteTx(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) error
 	AdjustBalanceTx(ctx context.Context, tx pgx.Tx, accountType string, accountID, userID uuid.UUID, delta float64) error
+	SumExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error)
 }
 
 type transactionRepository struct {
@@ -214,4 +215,15 @@ func (r *transactionRepository) AdjustBalanceTx(ctx context.Context, tx pgx.Tx, 
 
 	_, err := tx.Exec(ctx, query, delta, accountID, userID)
 	return err
+}
+
+func (r *transactionRepository) SumExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transactions
+		WHERE user_id = $1 AND type = 'expense' AND date >= $2 AND date < $3
+	`
+	var total float64
+	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(&total)
+	return total, err
 }
