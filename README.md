@@ -52,6 +52,10 @@ All protected routes require `Authorization: Bearer <jwt-token>` header.
 | GET      | /api/v1/wallets/:id   | Yes   | Get wallet by ID            |
 | PUT      | /api/v1/wallets/:id   | Yes   | Update wallet               |
 | DELETE   | /api/v1/wallets/:id   | Yes   | Delete wallet               |
+| POST     | /api/v1/transfers     | Yes   | Transfer money between user accounts (card ↔ wallet, no transaction recorded) |
+| GET      | /api/v1/transfers     | Yes   | List user transfers (paginated) |
+| GET      | /api/v1/transfers/:id | Yes   | Get transfer by ID          |
+| DELETE   | /api/v1/transfers/:id | Yes   | Reverse a transfer (restores balances) |
 | GET      | /health               | No    | Health check                 |
 
 ### Auth
@@ -66,6 +70,29 @@ All protected routes require `Authorization: Bearer <jwt-token>` header.
 GET /api/v1/cards?limit=10&offset=0&search=bca&sort_by=balance_idr&order=asc
 GET /api/v1/wallets?limit=10&offset=0&search=fund&sort_by=name&order=desc
 ```
+
+### Transfer
+
+Move money between user's own accounts (card ↔ card, card ↔ wallet, wallet ↔ wallet). Tidak tercatat ke `transactions`, jadi tidak memengaruhi income/expense overview.
+
+```
+POST /api/v1/transfers
+```
+
+```json
+{
+  "from_type": "card",
+  "from_id": "<uuid>",
+  "to_type": "wallet",
+  "to_id": "<uuid>",
+  "amount": 100000,
+  "fee": 2500,
+  "note": "top up e-wallet",
+  "date": "2026-08-09"
+}
+```
+
+Validations: `from`/`to` harus milik user yang sama, `from` ≠ `to`, amount > 0, saldo sumber cukup (`amount + fee`). `fee` opsional default 0, wajib < amount. Debit dari sumber `amount + fee`, kredit ke tujuan `amount` saja. Semua mutasi atomik dalam satu database transaction.
 
 | Query Param | Description                            | Default     |
 |-------------|----------------------------------------|-------------|

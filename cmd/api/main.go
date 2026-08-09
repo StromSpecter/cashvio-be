@@ -60,6 +60,10 @@ func main() {
 	transactionSvc := service.NewTransactionService(transactionRepo, dbPool, walletRepo, cardRepo)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc, cfg)
 
+	transferRepo := repository.NewTransferRepository(dbPool)
+	transferSvc := service.NewTransferService(transferRepo, dbPool, walletRepo, cardRepo)
+	transferHandler := handler.NewTransferHandler(transferSvc, cfg)
+
 	categoryBudgetRepo := repository.NewCategoryBudgetRepository(dbPool)
 	categoryBudgetSvc := service.NewCategoryBudgetService(categoryBudgetRepo)
 	categoryBudgetHandler := handler.NewCategoryBudgetHandler(categoryBudgetSvc, cfg)
@@ -67,7 +71,7 @@ func main() {
 	budgetOverviewSvc := service.NewBudgetOverviewService(transactionRepo, categoryBudgetRepo)
 	budgetOverviewHandler := handler.NewBudgetOverviewHandler(budgetOverviewSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, budgetOverviewHandler, categoryBudgetHandler)
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -145,6 +149,21 @@ func runMigrations(pool *pgxpool.Pool) error {
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
+		`CREATE TABLE IF NOT EXISTS transfers (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			from_type VARCHAR(10) NOT NULL CHECK (from_type IN ('wallet','card')),
+			from_id UUID NOT NULL,
+			to_type VARCHAR(10) NOT NULL CHECK (to_type IN ('wallet','card')),
+			to_id UUID NOT NULL,
+			amount DECIMAL(16,2) NOT NULL CHECK (amount > 0),
+			fee DECIMAL(16,2) NOT NULL DEFAULT 0 CHECK (fee >= 0),
+			note VARCHAR(255),
+			date DATE NOT NULL DEFAULT CURRENT_DATE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS fee DECIMAL(16,2) NOT NULL DEFAULT 0 CHECK (fee >= 0)`,
 		`CREATE TABLE IF NOT EXISTS category_budgets (
 			id UUID PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
