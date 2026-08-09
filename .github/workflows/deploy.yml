@@ -31,4 +31,4 @@ jobs:
           VPS_PASS: ${{ secrets.VPS_PASS }}
         run: |
           tar czf - cashvio-be | sshpass -p "$VPS_PASS" ssh -o StrictHostKeyChecking=no \
-            "$VPS_USER@$VPS_HOST" "cat > /var/www/cashvio/cashvio-be/cashvio-be.new && chmod +x /var/www/cashvio/cashvio-be/cashvio-be.new && mv -f /var/www/cashvio/cashvio-be/cashvio-be.new /var/www/cashvio/cashvio-be/cashvio-be && pm2 restart cashvio-be"
+            "$VPS_USER@$VPS_HOST" "tar xzf - -C /var/www/cashvio/cashvio-be && chmod +x /var/www/cashvio/cashvio-be/cashvio-be && pm2 restart cashvio-be"
