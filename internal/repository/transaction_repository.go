@@ -233,7 +233,7 @@ func (r *transactionRepository) SumIncomeByPeriod(ctx context.Context, userID uu
 	query := `
 		SELECT COALESCE(SUM(amount), 0)
 		FROM transactions
-		WHERE user_id = $1 AND type = 'income' AND category = 'income' AND status = 'completed' AND date >= $2 AND date < $3
+		WHERE user_id = $1 AND type = 'income' AND status = 'completed' AND date >= $2 AND date < $3
 	`
 	var total float64
 	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(&total)
