@@ -33,11 +33,11 @@ type CreateTransactionRequest struct {
 }
 
 type UpdateTransactionRequest struct {
-	Name        string    `json:"name" binding:"omitempty,min=2,max=100"`
-	Amount      float64   `json:"amount" binding:"omitempty,gt=0"`
-	Type        string    `json:"type" binding:"omitempty,oneof=income expense"`
-	Category    string    `json:"category" binding:"omitempty,oneof=income salary shopping groceries subscription travel transfer"`
-	Status      string    `json:"status" binding:"omitempty,oneof=completed pending failed"`
+	Name        string     `json:"name" binding:"omitempty,min=2,max=100"`
+	Amount      float64    `json:"amount" binding:"omitempty,gt=0"`
+	Type        string     `json:"type" binding:"omitempty,oneof=income expense"`
+	Category    string     `json:"category" binding:"omitempty,oneof=income salary shopping groceries subscription travel transfer"`
+	Status      string     `json:"status" binding:"omitempty,oneof=completed pending failed"`
 	AccountType string     `json:"account_type" binding:"omitempty,oneof=wallet card"`
 	AccountID   *uuid.UUID `json:"account_id" binding:"omitempty"`
 	Date        string     `json:"date" binding:"omitempty"`
@@ -62,14 +62,14 @@ func NewTransactionQuery() *TransactionQuery {
 		SortBy: "date",
 		Order:  "desc",
 		ValidSortFields: map[string]bool{
-			"date":        true,
-			"amount":      true,
-			"name":        true,
-			"category":    true,
-			"status":      true,
-			"type":        true,
-			"created_at":  true,
-			"updated_at":  true,
+			"date":       true,
+			"amount":     true,
+			"name":       true,
+			"category":   true,
+			"status":     true,
+			"type":       true,
+			"created_at": true,
+			"updated_at": true,
 		},
 	}
 }

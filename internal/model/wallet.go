@@ -38,27 +38,27 @@ type UpdateWalletRequest struct {
 }
 
 type WalletQuery struct {
-	Limit         int
-	Offset        int
-	Search        string
-	SortBy        string
-	Order         string
+	Limit           int
+	Offset          int
+	Search          string
+	SortBy          string
+	Order           string
 	ValidSortFields map[string]bool
 }
 
 func NewWalletQuery() *WalletQuery {
 	return &WalletQuery{
-		Limit: 10,
+		Limit:  10,
 		Offset: 0,
 		SortBy: "created_at",
 		Order:  "desc",
 		ValidSortFields: map[string]bool{
-			"created_at":   true,
-			"updated_at":   true,
-			"name":         true,
-			"balance_idr":  true,
-			"number":       true,
-			"status":       true,
+			"created_at":  true,
+			"updated_at":  true,
+			"name":        true,
+			"balance_idr": true,
+			"number":      true,
+			"status":      true,
 		},
 	}
 }
