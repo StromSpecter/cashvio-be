@@ -205,16 +205,22 @@ func (r *transactionRepository) delete(ctx context.Context, e execer, id, userID
 
 func (r *transactionRepository) AdjustBalanceTx(ctx context.Context, tx pgx.Tx, accountType string, accountID, userID uuid.UUID, delta float64) error {
 	var query string
+	var args []interface{}
 	switch accountType {
 	case "wallet":
 		query = `UPDATE wallets SET balance_idr = balance_idr + $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`
+		args = []interface{}{delta, accountID, userID}
 	case "card":
 		query = `UPDATE cards SET balance_idr = balance_idr + $1, updated_at = NOW() WHERE id = $2 AND user_id = $3`
+		args = []interface{}{delta, accountID, userID}
+	case "cash":
+		query = `UPDATE cashes SET balance_idr = balance_idr + $1, updated_at = NOW() WHERE user_id = $2`
+		args = []interface{}{delta, userID}
 	default:
 		return fmt.Errorf("invalid account type: %s", accountType)
 	}
 
-	_, err := tx.Exec(ctx, query, delta, accountID, userID)
+	_, err := tx.Exec(ctx, query, args...)
 	return err
 }
 

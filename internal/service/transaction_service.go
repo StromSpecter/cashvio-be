@@ -27,10 +27,11 @@ type transactionService struct {
 	db         *pgxpool.Pool
 	walletRepo repository.WalletRepository
 	cardRepo   repository.CardRepository
+	cashRepo   repository.CashRepository
 }
 
-func NewTransactionService(repo repository.TransactionRepository, db *pgxpool.Pool, walletRepo repository.WalletRepository, cardRepo repository.CardRepository) TransactionService {
-	return &transactionService{repo: repo, db: db, walletRepo: walletRepo, cardRepo: cardRepo}
+func NewTransactionService(repo repository.TransactionRepository, db *pgxpool.Pool, walletRepo repository.WalletRepository, cardRepo repository.CardRepository, cashRepo repository.CashRepository) TransactionService {
+	return &transactionService{repo: repo, db: db, walletRepo: walletRepo, cardRepo: cardRepo, cashRepo: cashRepo}
 }
 
 func ParseTransactionQuery(q *model.TransactionQuery, limit, offset, search, sortBy, order, t, category, status string) *model.TransactionQuery {
@@ -260,6 +261,17 @@ func (s *transactionService) validateAccount(ctx context.Context, accountType st
 				return errors.New("card not found")
 			}
 			return errors.New("failed to validate card")
+		}
+	case "cash":
+		cash, err := s.cashRepo.GetByUserID(ctx, userID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return errors.New("cash balance not found")
+			}
+			return errors.New("failed to validate cash balance")
+		}
+		if cash.ID != accountID {
+			return errors.New("cash account not found")
 		}
 	default:
 		return errors.New("invalid account type")

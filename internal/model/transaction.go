@@ -27,7 +27,7 @@ type CreateTransactionRequest struct {
 	Type        string    `json:"type" binding:"required,oneof=income expense"`
 	Category    string    `json:"category" binding:"required,oneof=salary freelance gift bonus food transportation housing shopping entertainment health education income transfer groceries subscription travel"`
 	Status      string    `json:"status" binding:"omitempty,oneof=completed pending failed"`
-	AccountType string    `json:"account_type" binding:"required,oneof=wallet card"`
+	AccountType string    `json:"account_type" binding:"required,oneof=wallet card cash"`
 	AccountID   uuid.UUID `json:"account_id" binding:"required"`
 	Date        string    `json:"date" binding:"omitempty"`
 }
@@ -38,7 +38,7 @@ type UpdateTransactionRequest struct {
 	Type        string     `json:"type" binding:"omitempty,oneof=income expense"`
 	Category    string     `json:"category" binding:"omitempty,oneof=salary freelance gift bonus food transportation housing shopping entertainment health education income transfer groceries subscription travel"`
 	Status      string     `json:"status" binding:"omitempty,oneof=completed pending failed"`
-	AccountType string     `json:"account_type" binding:"omitempty,oneof=wallet card"`
+	AccountType string     `json:"account_type" binding:"omitempty,oneof=wallet card cash"`
 	AccountID   *uuid.UUID `json:"account_id" binding:"omitempty"`
 	Date        string     `json:"date" binding:"omitempty"`
 }

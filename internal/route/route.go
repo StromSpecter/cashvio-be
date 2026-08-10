@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, budgetOverviewHandler *handler.BudgetOverviewHandler, categoryBudgetHandler *handler.CategoryBudgetHandler) *gin.Engine {
+func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, budgetOverviewHandler *handler.BudgetOverviewHandler, categoryBudgetHandler *handler.CategoryBudgetHandler, cashHandler *handler.CashHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(middleware.RecoveryMiddleware())
@@ -64,6 +64,15 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 			transfers.GET("", transferHandler.GetTransfers)
 			transfers.GET("/:id", transferHandler.GetTransfer)
 			transfers.DELETE("/:id", transferHandler.DeleteTransfer)
+		}
+
+		cash := api.Group("/cash")
+		{
+			cash.GET("", cashHandler.GetCash)
+			cash.POST("/withdrawals", cashHandler.CreateWithdrawal)
+			cash.GET("/withdrawals", cashHandler.GetWithdrawals)
+			cash.GET("/withdrawals/:id", cashHandler.GetWithdrawal)
+			cash.DELETE("/withdrawals/:id", cashHandler.DeleteWithdrawal)
 		}
 
 		budgets := api.Group("/budgets")

@@ -56,8 +56,12 @@ func main() {
 	walletSvc := service.NewWalletService(walletRepo)
 	walletHandler := handler.NewWalletHandler(walletSvc, cfg)
 
+	cashRepo := repository.NewCashRepository(dbPool)
+	cashSvc := service.NewCashService(cashRepo, dbPool, walletRepo, cardRepo)
+	cashHandler := handler.NewCashHandler(cashSvc, cfg)
+
 	transactionRepo := repository.NewTransactionRepository(dbPool)
-	transactionSvc := service.NewTransactionService(transactionRepo, dbPool, walletRepo, cardRepo)
+	transactionSvc := service.NewTransactionService(transactionRepo, dbPool, walletRepo, cardRepo, cashRepo)
 	transactionHandler := handler.NewTransactionHandler(transactionSvc, cfg)
 
 	transferRepo := repository.NewTransferRepository(dbPool)
@@ -71,7 +75,7 @@ func main() {
 	budgetOverviewSvc := service.NewBudgetOverviewService(transactionRepo, categoryBudgetRepo)
 	budgetOverviewHandler := handler.NewBudgetOverviewHandler(budgetOverviewSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler)
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler, cashHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -164,6 +168,29 @@ func runMigrations(pool *pgxpool.Pool) error {
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`ALTER TABLE transfers ADD COLUMN IF NOT EXISTS fee DECIMAL(16,2) NOT NULL DEFAULT 0 CHECK (fee >= 0)`,
+		`CREATE TABLE IF NOT EXISTS cashes (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+			balance_idr DECIMAL(16,2) NOT NULL DEFAULT 0,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE IF NOT EXISTS cash_withdrawals (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			from_type VARCHAR(10) NOT NULL CHECK (from_type IN ('wallet','card')),
+			from_id UUID NOT NULL,
+			amount DECIMAL(16,2) NOT NULL CHECK (amount > 0),
+			fee DECIMAL(16,2) NOT NULL DEFAULT 0 CHECK (fee >= 0),
+			note VARCHAR(255),
+			date DATE NOT NULL DEFAULT CURRENT_DATE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_account_type_check`,
+		`ALTER TABLE transactions ADD CONSTRAINT transactions_account_type_check CHECK (account_type IN ('wallet','card','cash'))`,
+		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_category_check`,
+		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education'))`,
 		`CREATE TABLE IF NOT EXISTS category_budgets (
 			id UUID PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
