@@ -30,6 +30,9 @@ type TransactionRepository interface {
 	AdjustBalanceTx(ctx context.Context, tx pgx.Tx, accountType string, accountID, userID uuid.UUID, delta float64) error
 	SumExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error)
 	SumIncomeByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (float64, error)
+	FlowSeries(ctx context.Context, userID uuid.UUID, start, end time.Time, trunc string) ([]*model.FlowRow, error)
+	ExpenseByCategory(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]*model.CategorySpending, error)
+	MaxExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (*model.Transaction, error)
 }
 
 type transactionRepository struct {
@@ -244,4 +247,78 @@ func (r *transactionRepository) SumIncomeByPeriod(ctx context.Context, userID uu
 	var total float64
 	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(&total)
 	return total, err
+}
+
+func (r *transactionRepository) FlowSeries(ctx context.Context, userID uuid.UUID, start, end time.Time, trunc string) ([]*model.FlowRow, error) {
+	query := fmt.Sprintf(`
+		SELECT date_trunc('%s', date) AS bucket,
+			COALESCE(SUM(amount) FILTER (WHERE type = 'income' AND status = 'completed'), 0) AS income,
+			COALESCE(SUM(amount) FILTER (WHERE type = 'expense'), 0) AS expense
+		FROM transactions
+		WHERE user_id = $1 AND date >= $2 AND date < $3
+		GROUP BY bucket
+		ORDER BY bucket
+	`, trunc)
+
+	rows, err := r.db.Query(ctx, query, userID, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]*model.FlowRow, 0)
+	for rows.Next() {
+		row := &model.FlowRow{}
+		if err := rows.Scan(&row.Bucket, &row.Income, &row.Expense); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
+func (r *transactionRepository) ExpenseByCategory(ctx context.Context, userID uuid.UUID, start, end time.Time) ([]*model.CategorySpending, error) {
+	query := `
+		SELECT category, COALESCE(SUM(amount), 0) AS total
+		FROM transactions
+		WHERE user_id = $1 AND type = 'expense' AND date >= $2 AND date < $3
+		GROUP BY category
+		ORDER BY total DESC
+	`
+
+	rows, err := r.db.Query(ctx, query, userID, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]*model.CategorySpending, 0)
+	for rows.Next() {
+		row := &model.CategorySpending{}
+		if err := rows.Scan(&row.Category, &row.Amount); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
+func (r *transactionRepository) MaxExpenseByPeriod(ctx context.Context, userID uuid.UUID, start, end time.Time) (*model.Transaction, error) {
+	query := `
+		SELECT id, user_id, name, amount, type, category, status, account_type, account_id, date, created_at, updated_at
+		FROM transactions
+		WHERE user_id = $1 AND type = 'expense' AND date >= $2 AND date < $3
+		ORDER BY amount ASC
+		LIMIT 1
+	`
+	txn := &model.Transaction{}
+	err := r.db.QueryRow(ctx, query, userID, start, end).Scan(
+		&txn.ID, &txn.UserID, &txn.Name, &txn.Amount, &txn.Type, &txn.Category,
+		&txn.Status, &txn.AccountType, &txn.AccountID, &txn.Date,
+		&txn.CreatedAt, &txn.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return txn, nil
 }

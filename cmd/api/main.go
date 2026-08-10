@@ -75,7 +75,10 @@ func main() {
 	budgetOverviewSvc := service.NewBudgetOverviewService(transactionRepo, categoryBudgetRepo)
 	budgetOverviewHandler := handler.NewBudgetOverviewHandler(budgetOverviewSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler, cashHandler)
+	dashboardSvc := service.NewDashboardService(transactionRepo, walletRepo, cardRepo, cashRepo, categoryBudgetRepo)
+	dashboardHandler := handler.NewDashboardHandler(dashboardSvc, cfg)
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler, cashHandler, dashboardHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),

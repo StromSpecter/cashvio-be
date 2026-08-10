@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, budgetOverviewHandler *handler.BudgetOverviewHandler, categoryBudgetHandler *handler.CategoryBudgetHandler, cashHandler *handler.CashHandler) *gin.Engine {
+func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, budgetOverviewHandler *handler.BudgetOverviewHandler, categoryBudgetHandler *handler.CategoryBudgetHandler, cashHandler *handler.CashHandler, dashboardHandler *handler.DashboardHandler) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(middleware.RecoveryMiddleware())
@@ -78,6 +78,11 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 		budgets := api.Group("/budgets")
 		{
 			budgets.GET("/overview", budgetOverviewHandler.GetBudgetOverview)
+		}
+
+		dashboard := api.Group("/dashboard")
+		{
+			dashboard.GET("/overview", dashboardHandler.GetOverview)
 		}
 
 		categoryBudgets := api.Group("/category-budgets")
