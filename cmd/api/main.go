@@ -193,7 +193,7 @@ func runMigrations(pool *pgxpool.Pool) error {
 		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_account_type_check`,
 		`ALTER TABLE transactions ADD CONSTRAINT transactions_account_type_check CHECK (account_type IN ('wallet','card','cash'))`,
 		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_category_check`,
-		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education'))`,
+		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education','pets'))`,
 		`CREATE TABLE IF NOT EXISTS category_budgets (
 			id UUID PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
