@@ -3,19 +3,19 @@ package model
 import "time"
 
 type DashboardOverview struct {
-	TotalBalance float64                `json:"total_balance"`
-	Income       float64                `json:"income"`
-	Expense      float64                `json:"expense"`
-	Savings      float64                `json:"savings"`
-	SavingsRate  float64                `json:"savings_rate"`
-	Changes      DashboardChanges       `json:"changes"`
+	TotalBalance float64                 `json:"total_balance"`
+	Income       float64                 `json:"income"`
+	Expense      float64                 `json:"expense"`
+	Savings      float64                 `json:"savings"`
+	SavingsRate  float64                 `json:"savings_rate"`
+	Changes      DashboardChanges        `json:"changes"`
 	Balance      map[string][]*FlowPoint `json:"balance_overview"`
-	Spending     []*CategorySpending    `json:"spending"`
-	CashFlow     []*FlowPoint           `json:"cash_flow"`
-	Accounts     DashboardAccounts      `json:"accounts"`
-	Recent       []*Transaction         `json:"recent_transactions"`
-	Largest      *Transaction           `json:"largest_expense"`
-	Budget       DashboardBudget        `json:"budget"`
+	Spending     []*CategorySpending     `json:"spending"`
+	CashFlow     []*FlowPoint            `json:"cash_flow"`
+	Accounts     DashboardAccounts       `json:"accounts"`
+	Recent       []*Transaction          `json:"recent_transactions"`
+	Largest      *Transaction            `json:"largest_expense"`
+	Budget       DashboardBudget         `json:"budget"`
 }
 
 type DashboardChanges struct {
