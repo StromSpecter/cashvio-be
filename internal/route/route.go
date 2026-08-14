@@ -53,6 +53,7 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 		{
 			transactions.POST("", transactionHandler.CreateTransaction)
 			transactions.GET("", transactionHandler.GetTransactions)
+			transactions.GET("/download", transactionHandler.DownloadTransactions)
 			transactions.GET("/:id", transactionHandler.GetTransaction)
 			transactions.PUT("/:id", transactionHandler.UpdateTransaction)
 			transactions.DELETE("/:id", transactionHandler.DeleteTransaction)

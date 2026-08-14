@@ -18,6 +18,7 @@ type TransactionService interface {
 	CreateTransaction(ctx context.Context, userID uuid.UUID, req *model.CreateTransactionRequest) (*model.Transaction, error)
 	GetTransactionByID(ctx context.Context, id, userID uuid.UUID) (*model.Transaction, error)
 	GetAllTransactions(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, int, error)
+	ExportTransactions(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, error)
 	UpdateTransaction(ctx context.Context, id, userID uuid.UUID, req *model.UpdateTransactionRequest) (*model.Transaction, error)
 	DeleteTransaction(ctx context.Context, id, userID uuid.UUID) error
 }
@@ -134,6 +135,14 @@ func (s *transactionService) GetAllTransactions(ctx context.Context, q *model.Tr
 		return nil, 0, errors.New("failed to count transactions")
 	}
 	return transactions, total, nil
+}
+
+func (s *transactionService) ExportTransactions(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, error) {
+	transactions, err := s.repo.GetAllByUserID(ctx, q, userID)
+	if err != nil {
+		return nil, errors.New("failed to retrieve transactions")
+	}
+	return transactions, nil
 }
 
 func (s *transactionService) UpdateTransaction(ctx context.Context, id, userID uuid.UUID, req *model.UpdateTransactionRequest) (*model.Transaction, error) {

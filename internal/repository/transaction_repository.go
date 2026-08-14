@@ -22,6 +22,7 @@ type TransactionRepository interface {
 	CreateTx(ctx context.Context, tx pgx.Tx, txn *model.Transaction) error
 	GetByID(ctx context.Context, id, userID uuid.UUID) (*model.Transaction, error)
 	GetByUserID(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, error)
+	GetAllByUserID(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, error)
 	CountByUserID(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) (int, error)
 	Update(ctx context.Context, txn *model.Transaction) error
 	UpdateTx(ctx context.Context, tx pgx.Tx, txn *model.Transaction) error
@@ -99,6 +100,46 @@ func (r *transactionRepository) GetByUserID(ctx context.Context, q *model.Transa
 		ORDER BY %s %s LIMIT $%d OFFSET $%d
 	`, strings.Join(conditions, " AND "), sortCol, order, argPos, argPos+1)
 	args = append(args, q.Limit, q.Offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	transactions := make([]*model.Transaction, 0)
+	for rows.Next() {
+		txn := &model.Transaction{}
+		err := rows.Scan(
+			&txn.ID, &txn.UserID, &txn.Name, &txn.Amount, &txn.Type, &txn.Category,
+			&txn.Status, &txn.AccountType, &txn.AccountID, &txn.Date,
+			&txn.CreatedAt, &txn.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		transactions = append(transactions, txn)
+	}
+	return transactions, nil
+}
+
+func (r *transactionRepository) GetAllByUserID(ctx context.Context, q *model.TransactionQuery, userID uuid.UUID) ([]*model.Transaction, error) {
+	conditions, args, _ := r.buildConditions(q, userID)
+
+	sortCol := q.SortBy
+	if !q.ValidSortFields[sortCol] {
+		sortCol = "date"
+	}
+	order := strings.ToUpper(q.Order)
+	if order != "ASC" {
+		order = "DESC"
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, user_id, name, amount, type, category, status, account_type, account_id, date, created_at, updated_at
+		FROM transactions WHERE %s
+		ORDER BY %s %s
+	`, strings.Join(conditions, " AND "), sortCol, order)
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
