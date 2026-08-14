@@ -15,7 +15,6 @@ type DashboardOverview struct {
 	Accounts     DashboardAccounts       `json:"accounts"`
 	Recent       []*Transaction          `json:"recent_transactions"`
 	Largest      *Transaction            `json:"largest_expense"`
-	Budget       DashboardBudget         `json:"budget"`
 }
 
 type DashboardChanges struct {
@@ -47,11 +46,4 @@ type DashboardAccounts struct {
 	Wallets []*Wallet `json:"wallets"`
 	Cards   []*Card   `json:"cards"`
 	Cash    *Cash     `json:"cash"`
-}
-
-type DashboardBudget struct {
-	Income       float64 `json:"income"`
-	Spent        float64 `json:"spent"`
-	Remaining    float64 `json:"remaining"`
-	AllocatedPct float64 `json:"allocated_pct"`
 }

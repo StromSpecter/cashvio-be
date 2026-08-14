@@ -20,11 +20,10 @@ type dashboardService struct {
 	walletRepo repository.WalletRepository
 	cardRepo   repository.CardRepository
 	cashRepo   repository.CashRepository
-	catRepo    repository.CategoryBudgetRepository
 }
 
-func NewDashboardService(txnRepo repository.TransactionRepository, walletRepo repository.WalletRepository, cardRepo repository.CardRepository, cashRepo repository.CashRepository, catRepo repository.CategoryBudgetRepository) DashboardService {
-	return &dashboardService{txnRepo: txnRepo, walletRepo: walletRepo, cardRepo: cardRepo, cashRepo: cashRepo, catRepo: catRepo}
+func NewDashboardService(txnRepo repository.TransactionRepository, walletRepo repository.WalletRepository, cardRepo repository.CardRepository, cashRepo repository.CashRepository) DashboardService {
+	return &dashboardService{txnRepo: txnRepo, walletRepo: walletRepo, cardRepo: cardRepo, cashRepo: cashRepo}
 }
 
 var categoryLabels = map[string]string{
@@ -150,8 +149,6 @@ func (s *dashboardService) GetOverview(ctx context.Context, userID uuid.UUID) (*
 
 	largest, _ := s.txnRepo.MaxExpenseByPeriod(ctx, userID, monthStart, monthEnd)
 
-	budget := s.buildBudget(ctx, userID, income, expense)
-
 	return &model.DashboardOverview{
 		TotalBalance: totalBalance,
 		Income:       income,
@@ -173,7 +170,6 @@ func (s *dashboardService) GetOverview(ctx context.Context, userID uuid.UUID) (*
 		},
 		Recent:  recent,
 		Largest: largest,
-		Budget:  budget,
 	}, nil
 }
 
@@ -221,37 +217,6 @@ func bucketLabel(t time.Time, trunc string) string {
 		return t.Format("Jan")
 	}
 	return t.Format("Jan 2")
-}
-
-func (s *dashboardService) buildBudget(ctx context.Context, userID uuid.UUID, income, spent float64) model.DashboardBudget {
-	cq := model.NewCategoryBudgetQuery()
-	cq.Limit = 100
-	cats, err := s.catRepo.GetByUserID(ctx, cq, userID)
-	if err != nil {
-		return model.DashboardBudget{Income: income, Spent: spent, Remaining: income - spent}
-	}
-
-	var allocated float64
-	for _, c := range cats {
-		if c.Type == "percent" && c.Percent != nil {
-			allocated += income * (*c.Percent) / 100
-		} else if c.Type == "amount" && c.Amount != nil {
-			allocated += *c.Amount
-		}
-	}
-
-	remaining := income - spent
-	allocatedPct := 0.0
-	if income > 0 {
-		allocatedPct = allocated / income * 100
-	}
-
-	return model.DashboardBudget{
-		Income:       income,
-		Spent:        spent,
-		Remaining:    remaining,
-		AllocatedPct: allocatedPct,
-	}
 }
 
 func pctChange(current, previous float64) float64 {

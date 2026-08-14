@@ -68,17 +68,10 @@ func main() {
 	transferSvc := service.NewTransferService(transferRepo, dbPool, walletRepo, cardRepo)
 	transferHandler := handler.NewTransferHandler(transferSvc, cfg)
 
-	categoryBudgetRepo := repository.NewCategoryBudgetRepository(dbPool)
-	categoryBudgetSvc := service.NewCategoryBudgetService(categoryBudgetRepo)
-	categoryBudgetHandler := handler.NewCategoryBudgetHandler(categoryBudgetSvc, cfg)
-
-	budgetOverviewSvc := service.NewBudgetOverviewService(transactionRepo, categoryBudgetRepo)
-	budgetOverviewHandler := handler.NewBudgetOverviewHandler(budgetOverviewSvc, cfg)
-
-	dashboardSvc := service.NewDashboardService(transactionRepo, walletRepo, cardRepo, cashRepo, categoryBudgetRepo)
+	dashboardSvc := service.NewDashboardService(transactionRepo, walletRepo, cardRepo, cashRepo)
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, budgetOverviewHandler, categoryBudgetHandler, cashHandler, dashboardHandler)
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, cashHandler, dashboardHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -194,21 +187,8 @@ func runMigrations(pool *pgxpool.Pool) error {
 		`ALTER TABLE transactions ADD CONSTRAINT transactions_account_type_check CHECK (account_type IN ('wallet','card','cash'))`,
 		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_category_check`,
 		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education','pets'))`,
-		`CREATE TABLE IF NOT EXISTS category_budgets (
-			id UUID PRIMARY KEY,
-			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			name VARCHAR(100) NOT NULL,
-			type VARCHAR(10) NOT NULL CHECK (type IN ('percent','amount')),
-			percent DECIMAL(8,2),
-			amount DECIMAL(16,2),
-			color INT NOT NULL DEFAULT 1,
-			icon VARCHAR(50) NOT NULL DEFAULT 'home',
-			"desc" VARCHAR(255),
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-		)`,
-		`ALTER TABLE category_budgets DROP COLUMN IF EXISTS budget_id`,
 		`DROP TABLE IF EXISTS budgets CASCADE`,
+		`DROP TABLE IF EXISTS category_budgets CASCADE`,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
