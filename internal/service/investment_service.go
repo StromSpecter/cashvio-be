@@ -212,6 +212,7 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 		if *req.AccountType == "" {
 			updated.AccountType = nil
 			updated.AccountID = nil
+			updated.TransactionID = nil
 		} else {
 			if req.AccountID == nil {
 				return nil, errors.New("both source type and source account are required")
