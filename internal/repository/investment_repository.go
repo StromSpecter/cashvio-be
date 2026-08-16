@@ -137,12 +137,12 @@ func (r *investmentRepository) buildConditions(q *model.InvestmentQuery, userID 
 func (r *investmentRepository) UpdateTx(ctx context.Context, tx pgx.Tx, inv *model.Investment) error {
 	query := `
 		UPDATE investments SET type = $1, name = $2, ticker = $3, app = $4, account_type = $5, account_id = $6,
-		units = $7, buy_price = $8, date = $9, updated_at = $10
-		WHERE id = $11 AND user_id = $12
+		units = $7, buy_price = $8, date = $9, transaction_id = $10, updated_at = $11
+		WHERE id = $12 AND user_id = $13
 	`
 	_, err := tx.Exec(ctx, query,
 		inv.Type, inv.Name, inv.Ticker, inv.App, inv.AccountType, inv.AccountID,
-		inv.Units, inv.BuyPrice, inv.Date,
+		inv.Units, inv.BuyPrice, inv.Date, inv.TransactionID,
 		inv.UpdatedAt, inv.ID, inv.UserID,
 	)
 	return err

@@ -210,6 +210,9 @@ func runMigrations(pool *pgxpool.Pool) error {
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`ALTER TABLE investments DROP COLUMN IF EXISTS current_price`,
+		`ALTER TABLE investments ALTER COLUMN account_type DROP NOT NULL`,
+		`ALTER TABLE investments ALTER COLUMN account_id DROP NOT NULL`,
+		`ALTER TABLE investments ALTER COLUMN transaction_id DROP NOT NULL`,
 		`CREATE TABLE IF NOT EXISTS stock_prices (
 			id UUID PRIMARY KEY,
 			symbol VARCHAR(20) NOT NULL,

@@ -77,8 +77,14 @@ func ParseInvestmentQuery(q *model.InvestmentQuery, limit, offset, search, sortB
 }
 
 func (s *investmentService) CreateInvestment(ctx context.Context, userID uuid.UUID, req *model.CreateInvestmentRequest) (*model.Investment, error) {
-	if err := s.validateAccount(ctx, req.AccountType, req.AccountID, userID); err != nil {
-		return nil, err
+	hasAccount := req.AccountType != "" || req.AccountID != nil
+	if hasAccount {
+		if req.AccountType == "" || req.AccountID == nil {
+			return nil, errors.New("both source type and source account are required")
+		}
+		if err := s.validateAccount(ctx, req.AccountType, *req.AccountID, userID); err != nil {
+			return nil, err
+		}
 	}
 
 	date, err := parseTransactionDate(req.Date)
@@ -88,7 +94,6 @@ func (s *investmentService) CreateInvestment(ctx context.Context, userID uuid.UU
 
 	now := time.Now()
 	amountInvested := req.Units * req.BuyPrice
-	transactionID := uuid.New()
 	inv := &model.Investment{
 		ID:            uuid.New(),
 		UserID:        userID,
@@ -101,25 +106,16 @@ func (s *investmentService) CreateInvestment(ctx context.Context, userID uuid.UU
 		Units:         req.Units,
 		BuyPrice:      req.BuyPrice,
 		Date:          date,
-		TransactionID: transactionID,
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
 
-	txn := &model.Transaction{
-		ID:          transactionID,
-		UserID:      userID,
-		Name:        inv.Name,
-		Amount:      -amountInvested,
-		Type:        "expense",
-		Category:    "investment",
-		Status:      "completed",
-		AccountType: req.AccountType,
-		AccountID:   req.AccountID,
-		Date:        date,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+	var transactionID *uuid.UUID
+	if hasAccount {
+		id := uuid.New()
+		transactionID = &id
 	}
+	inv.TransactionID = transactionID
 
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -131,12 +127,29 @@ func (s *investmentService) CreateInvestment(ctx context.Context, userID uuid.UU
 		return nil, errors.New("failed to create investment")
 	}
 
-	if err := s.txnRepo.CreateTx(ctx, tx, txn); err != nil {
-		return nil, errors.New("failed to create linked transaction")
-	}
+	if hasAccount {
+		txn := &model.Transaction{
+			ID:          *transactionID,
+			UserID:      userID,
+			Name:        inv.Name,
+			Amount:      -amountInvested,
+			Type:        "expense",
+			Category:    "investment",
+			Status:      "completed",
+			AccountType: req.AccountType,
+			AccountID:   *req.AccountID,
+			Date:        date,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
 
-	if err := s.txnRepo.AdjustBalanceTx(ctx, tx, txn.AccountType, txn.AccountID, userID, txn.Amount); err != nil {
-		return nil, errors.New("failed to update account balance")
+		if err := s.txnRepo.CreateTx(ctx, tx, txn); err != nil {
+			return nil, errors.New("failed to create linked transaction")
+		}
+
+		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, txn.AccountType, txn.AccountID, userID, txn.Amount); err != nil {
+			return nil, errors.New("failed to update account balance")
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -193,11 +206,22 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 	if req.App != "" {
 		updated.App = strings.TrimSpace(req.App)
 	}
-	if req.AccountType != "" {
-		updated.AccountType = req.AccountType
-	}
-	if req.AccountID != nil {
-		updated.AccountID = *req.AccountID
+	if req.AccountType != nil {
+		if *req.AccountType == "" {
+			updated.AccountType = ""
+			updated.AccountID = nil
+		} else {
+			if req.AccountID == nil {
+				return nil, errors.New("both source type and source account are required")
+			}
+			updated.AccountType = *req.AccountType
+			updated.AccountID = req.AccountID
+		}
+	} else if req.AccountID != nil {
+		if updated.AccountType == "" {
+			return nil, errors.New("source type is required when changing the source account")
+		}
+		updated.AccountID = req.AccountID
 	}
 	if req.Units > 0 {
 		updated.Units = req.Units
@@ -213,9 +237,16 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 		updated.Date = date
 	}
 
-	accountChanged := updated.AccountType != old.AccountType || updated.AccountID != old.AccountID
-	if accountChanged {
-		if err := s.validateAccount(ctx, updated.AccountType, updated.AccountID, userID); err != nil {
+	hadAccount := old.AccountID != nil
+	hasAccount := updated.AccountID != nil
+	accountChanged := false
+	if hadAccount != hasAccount {
+		accountChanged = true
+	} else if hadAccount && hasAccount {
+		accountChanged = updated.AccountType != old.AccountType || *updated.AccountID != *old.AccountID
+	}
+	if accountChanged && hasAccount {
+		if err := s.validateAccount(ctx, updated.AccountType, *updated.AccountID, userID); err != nil {
 			return nil, err
 		}
 	}
@@ -223,8 +254,15 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 	oldAmount := -old.Units * old.BuyPrice
 	newAmount := -updated.Units * updated.BuyPrice
 
+	transactionID := updated.TransactionID
+	if hasAccount && transactionID == nil {
+		id := uuid.New()
+		transactionID = &id
+		updated.TransactionID = transactionID
+	}
+
 	txn := &model.Transaction{
-		ID:          old.TransactionID,
+		ID:          uuid.Nil,
 		UserID:      userID,
 		Name:        updated.Name,
 		Amount:      newAmount,
@@ -232,9 +270,15 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 		Category:    "investment",
 		Status:      "completed",
 		AccountType: updated.AccountType,
-		AccountID:   updated.AccountID,
+		AccountID:   uuid.Nil,
 		Date:        updated.Date,
 		UpdatedAt:   updated.UpdatedAt,
+	}
+	if transactionID != nil {
+		txn.ID = *transactionID
+	}
+	if updated.AccountID != nil {
+		txn.AccountID = *updated.AccountID
 	}
 
 	tx, err := s.db.Begin(ctx)
@@ -247,20 +291,38 @@ func (s *investmentService) UpdateInvestment(ctx context.Context, id, userID uui
 		return nil, errors.New("failed to update investment")
 	}
 
-	if err := s.txnRepo.UpdateTx(ctx, tx, txn); err != nil {
-		return nil, errors.New("failed to update linked transaction")
-	}
-
-	if accountChanged {
-		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, old.AccountType, old.AccountID, userID, -oldAmount); err != nil {
+	switch {
+	case !hadAccount && hasAccount:
+		if err := s.txnRepo.CreateTx(ctx, tx, txn); err != nil {
+			return nil, errors.New("failed to create linked transaction")
+		}
+		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, txn.AccountType, txn.AccountID, userID, txn.Amount); err != nil {
 			return nil, errors.New("failed to update account balance")
 		}
-		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, updated.AccountType, updated.AccountID, userID, newAmount); err != nil {
+	case hadAccount && !hasAccount:
+		if old.TransactionID != nil {
+			if err := s.txnRepo.DeleteTx(ctx, tx, *old.TransactionID, userID); err != nil {
+				return nil, errors.New("failed to delete linked transaction")
+			}
+		}
+		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, old.AccountType, *old.AccountID, userID, -oldAmount); err != nil {
 			return nil, errors.New("failed to update account balance")
 		}
-	} else if newAmount != oldAmount {
-		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, updated.AccountType, updated.AccountID, userID, newAmount-oldAmount); err != nil {
-			return nil, errors.New("failed to update account balance")
+	case hadAccount && hasAccount:
+		if err := s.txnRepo.UpdateTx(ctx, tx, txn); err != nil {
+			return nil, errors.New("failed to update linked transaction")
+		}
+		if accountChanged {
+			if err := s.txnRepo.AdjustBalanceTx(ctx, tx, old.AccountType, *old.AccountID, userID, -oldAmount); err != nil {
+				return nil, errors.New("failed to update account balance")
+			}
+			if err := s.txnRepo.AdjustBalanceTx(ctx, tx, updated.AccountType, *updated.AccountID, userID, newAmount); err != nil {
+				return nil, errors.New("failed to update account balance")
+			}
+		} else if newAmount != oldAmount {
+			if err := s.txnRepo.AdjustBalanceTx(ctx, tx, updated.AccountType, *updated.AccountID, userID, newAmount-oldAmount); err != nil {
+				return nil, errors.New("failed to update account balance")
+			}
 		}
 	}
 
@@ -290,12 +352,15 @@ func (s *investmentService) DeleteInvestment(ctx context.Context, id, userID uui
 		return errors.New("failed to delete investment")
 	}
 
-	if err := s.txnRepo.DeleteTx(ctx, tx, old.TransactionID, userID); err != nil {
-		return errors.New("failed to delete linked transaction")
-	}
-
-	if err := s.txnRepo.AdjustBalanceTx(ctx, tx, old.AccountType, old.AccountID, userID, old.Units*old.BuyPrice); err != nil {
-		return errors.New("failed to update account balance")
+	if old.AccountID != nil {
+		if old.TransactionID != nil {
+			if err := s.txnRepo.DeleteTx(ctx, tx, *old.TransactionID, userID); err != nil {
+				return errors.New("failed to delete linked transaction")
+			}
+		}
+		if err := s.txnRepo.AdjustBalanceTx(ctx, tx, old.AccountType, *old.AccountID, userID, old.Units*old.BuyPrice); err != nil {
+			return errors.New("failed to update account balance")
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
