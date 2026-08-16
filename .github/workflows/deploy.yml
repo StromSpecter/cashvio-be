@@ -30,5 +30,15 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_PASS: ${{ secrets.VPS_PASS }}
         run: |
-          tar czf - cashvio-be | sshpass -p "$VPS_PASS" ssh -o StrictHostKeyChecking=no \
+          retry() {
+            i=1
+            until "$@"; do
+              [ $i -ge 3 ] && return 1
+              echo "retry $i..."; sleep 5; i=$((i+1))
+            done
+          }
+          tar czf - cashvio-be | retry sshpass -p "$VPS_PASS" ssh \
+            -o StrictHostKeyChecking=no \
+            -o ConnectTimeout=30 \
+            -o ConnectionAttempts=3 \
             "$VPS_USER@$VPS_HOST" "tar xzf - -C /var/www/cashvio/cashvio-be && chmod +x /var/www/cashvio/cashvio-be/cashvio-be && pm2 restart cashvio-be"
