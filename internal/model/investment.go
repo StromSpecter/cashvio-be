@@ -7,20 +7,20 @@ import (
 )
 
 type Investment struct {
-	ID            uuid.UUID `json:"id" db:"id"`
-	UserID        uuid.UUID `json:"user_id" db:"user_id"`
-	Type          string    `json:"type" db:"type"`
-	Name          string    `json:"name" db:"name"`
-	Ticker        string    `json:"ticker" db:"ticker"`
-	App           string    `json:"app" db:"app"`
-	AccountType   string      `json:"account_type" db:"account_type"`
-	AccountID     *uuid.UUID  `json:"account_id" db:"account_id"`
-	Units         float64     `json:"units" db:"units"`
-	BuyPrice      float64     `json:"buy_price" db:"buy_price"`
-	Date          time.Time   `json:"date" db:"date"`
-	TransactionID *uuid.UUID  `json:"transaction_id" db:"transaction_id"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID  `json:"id" db:"id"`
+	UserID        uuid.UUID  `json:"user_id" db:"user_id"`
+	Type          string     `json:"type" db:"type"`
+	Name          string     `json:"name" db:"name"`
+	Ticker        string     `json:"ticker" db:"ticker"`
+	App           string     `json:"app" db:"app"`
+	AccountType   *string    `json:"account_type" db:"account_type"`
+	AccountID     *uuid.UUID `json:"account_id" db:"account_id"`
+	Units         float64    `json:"units" db:"units"`
+	BuyPrice      float64    `json:"buy_price" db:"buy_price"`
+	Date          time.Time  `json:"date" db:"date"`
+	TransactionID *uuid.UUID `json:"transaction_id" db:"transaction_id"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type CreateInvestmentRequest struct {
@@ -28,7 +28,7 @@ type CreateInvestmentRequest struct {
 	Name        string     `json:"name" binding:"required,min=2,max=100"`
 	Ticker      string     `json:"ticker" binding:"omitempty,max=20"`
 	App         string     `json:"app" binding:"omitempty,max=50"`
-	AccountType string     `json:"account_type" binding:"omitempty,oneof=wallet card cash"`
+	AccountType *string    `json:"account_type" binding:"omitempty,oneof=wallet card cash"`
 	AccountID   *uuid.UUID `json:"account_id" binding:"omitempty"`
 	Units       float64    `json:"units" binding:"required,gt=0"`
 	BuyPrice    float64    `json:"buy_price" binding:"required,gt=0"`
@@ -40,7 +40,7 @@ type UpdateInvestmentRequest struct {
 	Name        string     `json:"name" binding:"omitempty,min=2,max=100"`
 	Ticker      string     `json:"ticker" binding:"omitempty,max=20"`
 	App         string     `json:"app" binding:"omitempty,max=50"`
-	AccountType *string    `json:"account_type" binding:"omitempty,oneof=wallet card cash"`
+	AccountType *string    `json:"account_type"`
 	AccountID   *uuid.UUID `json:"account_id" binding:"omitempty"`
 	Units       float64    `json:"units" binding:"omitempty,gt=0"`
 	BuyPrice    float64    `json:"buy_price" binding:"omitempty,gt=0"`
