@@ -43,6 +43,7 @@ var categoryLabels = map[string]string{
 	"groceries":      "Groceries",
 	"subscription":   "Subscription",
 	"travel":         "Travel",
+	"investment":     "Investment",
 }
 
 func (s *dashboardService) GetOverview(ctx context.Context, userID uuid.UUID) (*model.DashboardOverview, error) {

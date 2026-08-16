@@ -12,6 +12,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	GoAPI    GoAPIConfig
 }
 
 type ServerConfig struct {
@@ -31,6 +32,11 @@ type DatabaseConfig struct {
 type JWTConfig struct {
 	Secret    string
 	ExpiresIn int
+}
+
+type GoAPIConfig struct {
+	PricesURL string
+	Key       string
 }
 
 func Load() (*Config, error) {
@@ -69,6 +75,10 @@ func Load() (*Config, error) {
 		JWT: JWTConfig{
 			Secret:    getEnv("JWT_SECRET", "changeme"),
 			ExpiresIn: expiresIn,
+		},
+		GoAPI: GoAPIConfig{
+			PricesURL: getEnv("GOAPI_STOCK_PRICES_URL", "https://api.goapi.io/stock/idx/prices"),
+			Key:       getEnv("GOAPI_API_KEY", ""),
 		},
 	}, nil
 }

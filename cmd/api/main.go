@@ -71,7 +71,13 @@ func main() {
 	dashboardSvc := service.NewDashboardService(transactionRepo, walletRepo, cardRepo, cashRepo)
 	dashboardHandler := handler.NewDashboardHandler(dashboardSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, cashHandler, dashboardHandler)
+	stockPriceRepo := repository.NewStockPriceRepository(dbPool)
+
+	investmentRepo := repository.NewInvestmentRepository(dbPool)
+	investmentSvc := service.NewInvestmentService(investmentRepo, transactionRepo, dbPool, cfg, stockPriceRepo, walletRepo, cardRepo, cashRepo)
+	investmentHandler := handler.NewInvestmentHandler(investmentSvc, cfg)
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, cashHandler, dashboardHandler, investmentHandler)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -186,7 +192,38 @@ func runMigrations(pool *pgxpool.Pool) error {
 		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_account_type_check`,
 		`ALTER TABLE transactions ADD CONSTRAINT transactions_account_type_check CHECK (account_type IN ('wallet','card','cash'))`,
 		`ALTER TABLE transactions DROP CONSTRAINT IF EXISTS transactions_category_check`,
-		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education','pets'))`,
+		`ALTER TABLE transactions ADD CONSTRAINT transactions_category_check CHECK (category IN ('income','salary','shopping','groceries','subscription','travel','transfer','freelance','gift','bonus','food','transportation','housing','entertainment','health','education','pets','investment'))`,
+		`CREATE TABLE IF NOT EXISTS investments (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			type VARCHAR(30) NOT NULL CHECK (type IN ('stock','mutual_fund','bond','gold','crypto','forex')),
+			name VARCHAR(100) NOT NULL,
+			ticker VARCHAR(20) NOT NULL DEFAULT '',
+			app VARCHAR(50) NOT NULL DEFAULT '',
+			account_type VARCHAR(10) NOT NULL CHECK (account_type IN ('wallet','card','cash')),
+			account_id UUID NOT NULL,
+			units DECIMAL(16,4) NOT NULL DEFAULT 0,
+			buy_price DECIMAL(16,2) NOT NULL DEFAULT 0,
+			date DATE NOT NULL DEFAULT CURRENT_DATE,
+			transaction_id UUID NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`ALTER TABLE investments DROP COLUMN IF EXISTS current_price`,
+		`CREATE TABLE IF NOT EXISTS stock_prices (
+			id UUID PRIMARY KEY,
+			symbol VARCHAR(20) NOT NULL,
+			date DATE NOT NULL,
+			open DECIMAL(16,2) NOT NULL DEFAULT 0,
+			high DECIMAL(16,2) NOT NULL DEFAULT 0,
+			low DECIMAL(16,2) NOT NULL DEFAULT 0,
+			close DECIMAL(16,2) NOT NULL DEFAULT 0,
+			volume BIGINT NOT NULL DEFAULT 0,
+			change DECIMAL(16,2) NOT NULL DEFAULT 0,
+			change_pct DECIMAL(16,4) NOT NULL DEFAULT 0,
+			fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE (symbol, date)
+		)`,
 		`DROP TABLE IF EXISTS budgets CASCADE`,
 		`DROP TABLE IF EXISTS category_budgets CASCADE`,
 	}
