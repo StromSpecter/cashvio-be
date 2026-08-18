@@ -24,7 +24,7 @@ type Investment struct {
 }
 
 type CreateInvestmentRequest struct {
-	Type        string     `json:"type" binding:"required,oneof=stock mutual_fund bond gold crypto forex"`
+	Type        string     `json:"type" binding:"required,oneof=stock gold"`
 	Name        string     `json:"name" binding:"required,min=2,max=100"`
 	Ticker      string     `json:"ticker" binding:"omitempty,max=20"`
 	App         string     `json:"app" binding:"omitempty,max=50"`
@@ -36,7 +36,7 @@ type CreateInvestmentRequest struct {
 }
 
 type UpdateInvestmentRequest struct {
-	Type        string     `json:"type" binding:"omitempty,oneof=stock mutual_fund bond gold crypto forex"`
+	Type        string     `json:"type" binding:"omitempty,oneof=stock gold"`
 	Name        string     `json:"name" binding:"omitempty,min=2,max=100"`
 	Ticker      string     `json:"ticker" binding:"omitempty,max=20"`
 	App         string     `json:"app" binding:"omitempty,max=50"`

@@ -196,7 +196,7 @@ func runMigrations(pool *pgxpool.Pool) error {
 		`CREATE TABLE IF NOT EXISTS investments (
 			id UUID PRIMARY KEY,
 			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-			type VARCHAR(30) NOT NULL CHECK (type IN ('stock','mutual_fund','bond','gold','crypto','forex')),
+			type VARCHAR(30) NOT NULL DEFAULT 'stock' CHECK (type IN ('stock','gold')),
 			name VARCHAR(100) NOT NULL,
 			ticker VARCHAR(20) NOT NULL DEFAULT '',
 			app VARCHAR(50) NOT NULL DEFAULT '',
@@ -213,6 +213,9 @@ func runMigrations(pool *pgxpool.Pool) error {
 		`ALTER TABLE investments ALTER COLUMN account_type DROP NOT NULL`,
 		`ALTER TABLE investments ALTER COLUMN account_id DROP NOT NULL`,
 		`ALTER TABLE investments ALTER COLUMN transaction_id DROP NOT NULL`,
+		`DELETE FROM investments WHERE type NOT IN ('stock','gold')`,
+		`ALTER TABLE investments DROP CONSTRAINT IF EXISTS investments_type_check`,
+		`ALTER TABLE investments ADD CONSTRAINT investments_type_check CHECK (type IN ('stock','gold'))`,
 		`CREATE TABLE IF NOT EXISTS stock_prices (
 			id UUID PRIMARY KEY,
 			symbol VARCHAR(20) NOT NULL,

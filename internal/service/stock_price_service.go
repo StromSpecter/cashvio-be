@@ -50,10 +50,28 @@ type goapiPriceResponse struct {
 	} `json:"data"`
 }
 
-// GetPrices returns the latest known price per ticker owned by the user.
-// Prices are fetched from the external API at most once per day, and only
-// within the 17:00-23:59 window. Outside the window, the last stored price
-// is returned (marked stale when it is not from today).
+type logamPriceResult struct {
+	Source       string  `json:"source"`
+	Material     string  `json:"material"`
+	MaterialType string  `json:"materialType"`
+	Weight       float64 `json:"weight"`
+	WeightUnit   string  `json:"weightUnit"`
+	SellPrice    float64 `json:"sellPrice"`
+	BuybackPrice float64 `json:"buybackPrice"`
+	Currency     string  `json:"currency"`
+	RecordedDate string  `json:"recordedDate"`
+	DisplayName  string  `json:"displayName"`
+}
+
+type logamPriceResponse struct {
+	Success bool               `json:"success"`
+	Data    []logamPriceResult `json:"data"`
+}
+
+// GetPrices returns the latest known price per asset owned by the user.
+// Stock prices are fetched from the external IDX API at most once per day,
+// only within the 17:00-23:59 window. Precious metal (gold) prices are
+// fetched live from the logam mulia API keyed by source.
 func (s *investmentService) GetPrices(ctx context.Context, userID uuid.UUID) ([]*model.InvestmentPrice, error) {
 	q := model.NewInvestmentQuery()
 	q.Limit = 100
@@ -62,6 +80,37 @@ func (s *investmentService) GetPrices(ctx context.Context, userID uuid.UUID) ([]
 		return nil, errors.New("failed to retrieve investments")
 	}
 
+	var stockInvs, goldInvs []*model.Investment
+	for _, inv := range investments {
+		if inv.Type == "gold" {
+			goldInvs = append(goldInvs, inv)
+		} else {
+			stockInvs = append(stockInvs, inv)
+		}
+	}
+
+	out := make([]*model.InvestmentPrice, 0, len(investments))
+
+	if len(goldInvs) > 0 {
+		goldPrices, err := s.fetchGoldPrices(ctx, goldInvs)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, goldPrices...)
+	}
+
+	if len(stockInvs) > 0 {
+		stockPrices, err := s.fetchStockPrices(ctx, stockInvs)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, stockPrices...)
+	}
+
+	return out, nil
+}
+
+func (s *investmentService) fetchStockPrices(ctx context.Context, investments []*model.Investment) ([]*model.InvestmentPrice, error) {
 	symbols := distinctSymbols(investments)
 	if len(symbols) == 0 {
 		return []*model.InvestmentPrice{}, nil
@@ -134,6 +183,127 @@ func (s *investmentService) GetPrices(ctx context.Context, userID uuid.UUID) ([]
 	}
 
 	return out, nil
+}
+
+func (s *investmentService) fetchGoldPrices(ctx context.Context, investments []*model.Investment) ([]*model.InvestmentPrice, error) {
+	gramsBySource := make(map[string]float64)
+	for _, inv := range investments {
+		source := strings.ToLower(strings.TrimSpace(inv.App))
+		if source == "" {
+			continue
+		}
+		gramsBySource[source] += inv.Units
+	}
+
+	if len(gramsBySource) == 0 {
+		return []*model.InvestmentPrice{}, nil
+	}
+
+	now := jakartaNow()
+	today := now.Format("2006-01-02")
+
+	out := make([]*model.InvestmentPrice, 0, len(gramsBySource))
+	for source, grams := range gramsBySource {
+		entries, err := s.fetchLogamPrices(ctx, source)
+		if err != nil {
+			return nil, err
+		}
+
+		entry, ok := bestLogamEntry(entries, grams)
+		if !ok {
+			continue
+		}
+		perGram := perGramPrice(entry)
+		if perGram <= 0 {
+			continue
+		}
+
+		stale := entry.RecordedDate != today
+		out = append(out, &model.InvestmentPrice{
+			Symbol:    source,
+			Name:      entry.DisplayName,
+			Date:      entry.RecordedDate,
+			Price:     perGram,
+			Change:    0,
+			ChangePct: 0,
+			Stale:     stale,
+		})
+	}
+
+	return out, nil
+}
+
+func (s *investmentService) fetchLogamPrices(ctx context.Context, source string) ([]logamPriceResult, error) {
+	url := s.cfg.LogamAPI.BaseURL + "/" + source
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.New("failed to build logam price request")
+	}
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, errors.New("failed to fetch logam prices")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("logam price service unavailable")
+	}
+
+	var body logamPriceResponse
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, errors.New("failed to parse logam prices")
+	}
+
+	return body.Data, nil
+}
+
+// perGramPrice returns the price per gram using buyback when available,
+// falling back to the sell price.
+func perGramPrice(e logamPriceResult) float64 {
+	if e.Weight <= 0 {
+		return 0
+	}
+	if e.BuybackPrice > 0 {
+		return e.BuybackPrice / e.Weight
+	}
+	return e.SellPrice / e.Weight
+}
+
+// bestLogamEntry picks the gold entry whose weight best matches the held grams.
+func bestLogamEntry(entries []logamPriceResult, grams float64) (logamPriceResult, bool) {
+	var best logamPriceResult
+	found := false
+	for _, e := range entries {
+		if strings.ToLower(e.Material) != "gold" || e.Weight <= 0 || perGramPrice(e) <= 0 {
+			continue
+		}
+		if !found {
+			best = e
+			found = true
+			continue
+		}
+		if betterLogamEntry(e, best, grams) {
+			best = e
+		}
+	}
+	return best, found
+}
+
+func betterLogamEntry(candidate, current logamPriceResult, grams float64) bool {
+	cd := abs(candidate.Weight - grams)
+	cdCurrent := abs(current.Weight - grams)
+	if cd != cdCurrent {
+		return cd < cdCurrent
+	}
+	return candidate.Weight < current.Weight
+}
+
+func abs(v float64) float64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 func (s *investmentService) fetchPrices(ctx context.Context, symbols []string) ([]goapiPriceResult, error) {

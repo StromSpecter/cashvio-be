@@ -13,6 +13,7 @@ type Config struct {
 	Database DatabaseConfig
 	JWT      JWTConfig
 	GoAPI    GoAPIConfig
+	LogamAPI LogamAPIConfig
 }
 
 type ServerConfig struct {
@@ -37,6 +38,10 @@ type JWTConfig struct {
 type GoAPIConfig struct {
 	PricesURL string
 	Key       string
+}
+
+type LogamAPIConfig struct {
+	BaseURL string
 }
 
 func Load() (*Config, error) {
@@ -79,6 +84,9 @@ func Load() (*Config, error) {
 		GoAPI: GoAPIConfig{
 			PricesURL: getEnv("GOAPI_STOCK_PRICES_URL", "https://api.goapi.io/stock/idx/prices"),
 			Key:       getEnv("GOAPI_API_KEY", ""),
+		},
+		LogamAPI: LogamAPIConfig{
+			BaseURL: getEnv("LOGAM_MULIA_API_URL", "https://logam-mulia-api.iamutaki.workers.dev/api/prices"),
 		},
 	}, nil
 }
