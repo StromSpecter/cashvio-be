@@ -9,9 +9,9 @@ import (
 var allowedOrigins = map[string]bool{
 	"https://alurkasku.com":     true,
 	"https://www.alurkasku.com": true,
-	"http://localhost:5173":      true,
-	"http://localhost:3000":      true,
-	"http://localhost:8080":      true,
+	"http://localhost:5173":     true,
+	"http://localhost:3000":     true,
+	"http://localhost:8080":     true,
 }
 
 func CORSMiddleware() gin.HandlerFunc {

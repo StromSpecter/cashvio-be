@@ -14,6 +14,12 @@ type Config struct {
 	JWT      JWTConfig
 	GoAPI    GoAPIConfig
 	LogamAPI LogamAPIConfig
+	Payment  PaymentConfig
+}
+
+type PaymentConfig struct {
+	Provider      string
+	WebhookSecret string
 }
 
 type ServerConfig struct {
@@ -87,6 +93,10 @@ func Load() (*Config, error) {
 		},
 		LogamAPI: LogamAPIConfig{
 			BaseURL: getEnv("LOGAM_MULIA_API_URL", "https://logam-mulia-api.iamutaki.workers.dev/api/prices"),
+		},
+		Payment: PaymentConfig{
+			Provider:      getEnv("PAYMENT_PROVIDER", "mock"),
+			WebhookSecret: getEnv("PAYMENT_WEBHOOK_SECRET", "dev-webhook-secret"),
 		},
 	}, nil
 }

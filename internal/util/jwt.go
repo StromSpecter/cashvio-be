@@ -7,10 +7,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func GenerateJWT(userID, email, secret string, expiresIn int) (string, error) {
+func GenerateJWT(userID, email, role, secret string, expiresIn int) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"email":   email,
+		"role":    role,
 		"exp":     time.Now().Add(time.Duration(expiresIn) * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
 	}

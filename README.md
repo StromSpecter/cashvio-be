@@ -56,6 +56,11 @@ All protected routes require `Authorization: Bearer <jwt-token>` header.
 | GET      | /api/v1/transfers     | Yes   | List user transfers (paginated) |
 | GET      | /api/v1/transfers/:id | Yes   | Get transfer by ID          |
 | DELETE   | /api/v1/transfers/:id | Yes   | Reverse a transfer (restores balances) |
+| POST     | /api/v1/payments/webhook | No | Payment gateway callback (signature-checked) |
+| GET      | /api/v1/premium/plans | Yes   | List premium plans (monthly/yearly) |
+| POST     | /api/v1/premium/orders | Yes  | Create premium order → returns dynamic QRIS |
+| GET      | /api/v1/premium/orders/:id | Yes | Poll order/payment status |
+| POST     | /api/v1/premium/orders/:id/simulate | Yes | Dev only: mark order paid (mock provider) |
 | GET      | /health               | No    | Health check                 |
 
 ### Auth
@@ -101,6 +106,29 @@ Validations: `from`/`to` harus milik user yang sama, `from` ≠ `to`, amount > 0
 | `search`    | Case-insensitive substring search     | -           |
 | `sort_by`   | Column: `created_at`, `updated_at`, `bank`, `balance_idr`, `number` (cards) / `name`, `balance_idr`, `status`, etc. (wallets) | `created_at` |
 | `order`     | `asc` or `desc`                       | `desc`     |
+
+### Premium (role-based access)
+
+Setiap user punya role `free` (default) atau `premium` (`users.role` + `users.premium_expires_at`). Semua route `/api/v1/investments/*` dilindungi middleware `RequirePremium` — user `free` dapat 403.
+
+**Flow upgrade (dynamic QRIS):**
+
+1. `GET /api/v1/premium/plans` → pilih paket (`monthly` Rp49.000 / `yearly` Rp469.000).
+2. `POST /api/v1/premium/orders` `{ "plan": "monthly" }` → buat order + QRIS dinamis. Response berisi `qris_string` (render ke QR di client) + `external_id` + `is_mock`.
+3. Frontend scan QR → polling `GET /api/v1/premium/orders/:id` tiap 3s.
+4. Gateway kirim callback ke `POST /api/v1/payments/webhook` (`X-Webhook-Signature` diverifikasi provider). Saat `status=paid`, backend set `users.role=premium` + perpanjang `premium_expires_at`.
+5. Frontend refresh `GET /users/me` → sidebar Investments terbuka.
+
+**Payment provider:** abstraksi `internal/payment.Provider`. Hanya `MockProvider` yang terpasang untuk development (tanpa settlement asli). Konfigurasi di `.env`:
+
+```
+PAYMENT_PROVIDER=mock
+PAYMENT_WEBHOOK_SECRET=change-me-strong-secret
+```
+
+- Order mock tidak terbayar sendiri. Pakai `POST /api/v1/premium/orders/:id/simulate` (hanya tersedia saat provider `mock`) atau kirim webhook manual:
+  `POST /api/v1/payments/webhook` body `{"external_id":"PREMIUM-...","status":"paid"}` + header `X-Webhook-Signature: <PAYMENT_WEBHOOK_SECRET>`.
+- Untuk produksi: implementasi provider real (Midtrans/Xendit/Tripay) di balik interface `payment.Provider` lalu ganti `PAYMENT_PROVIDER`.
 
 ## Project Structure
 

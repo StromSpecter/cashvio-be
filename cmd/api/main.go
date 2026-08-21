@@ -14,9 +14,13 @@ import (
 	"github.com/cashvio/cashvio-be/internal/config"
 	"github.com/cashvio/cashvio-be/internal/database"
 	"github.com/cashvio/cashvio-be/internal/handler"
+	"github.com/cashvio/cashvio-be/internal/middleware"
+	"github.com/cashvio/cashvio-be/internal/model"
+	"github.com/cashvio/cashvio-be/internal/payment"
 	"github.com/cashvio/cashvio-be/internal/repository"
 	"github.com/cashvio/cashvio-be/internal/route"
 	"github.com/cashvio/cashvio-be/internal/service"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -77,7 +81,19 @@ func main() {
 	investmentSvc := service.NewInvestmentService(investmentRepo, transactionRepo, dbPool, cfg, stockPriceRepo, walletRepo, cardRepo, cashRepo)
 	investmentHandler := handler.NewInvestmentHandler(investmentSvc, cfg)
 
-	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, cashHandler, dashboardHandler, investmentHandler)
+	premiumRepo := repository.NewPremiumRepository(dbPool)
+	premiumProvider := payment.NewProvider(map[string]string{
+		"provider":       cfg.Payment.Provider,
+		"webhook_secret": cfg.Payment.WebhookSecret,
+	})
+	premiumSvc := service.NewPremiumService(premiumRepo, userRepo, premiumProvider)
+	premiumHandler := handler.NewPremiumHandler(premiumSvc, premiumProvider, cfg)
+
+	premiumGuard := middleware.RequirePremium(func(ctx context.Context, id uuid.UUID) (*model.User, error) {
+		return userRepo.GetByID(ctx, id)
+	})
+
+	r := route.Setup(cfg, userHandler, cardHandler, walletHandler, transactionHandler, transferHandler, cashHandler, dashboardHandler, investmentHandler, premiumHandler, premiumGuard)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Server.Port),
@@ -232,6 +248,25 @@ func runMigrations(pool *pgxpool.Pool) error {
 		)`,
 		`DROP TABLE IF EXISTS budgets CASCADE`,
 		`DROP TABLE IF EXISTS category_budgets CASCADE`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(20) NOT NULL DEFAULT 'free' CHECK (role IN ('free','premium'))`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_expires_at TIMESTAMP WITH TIME ZONE`,
+		`CREATE TABLE IF NOT EXISTS premium_orders (
+			id UUID PRIMARY KEY,
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			plan VARCHAR(20) NOT NULL,
+			amount DECIMAL(16,2) NOT NULL,
+			currency VARCHAR(3) NOT NULL DEFAULT 'IDR',
+			duration_days INT NOT NULL,
+			external_id VARCHAR(100) UNIQUE NOT NULL,
+			qris_string TEXT NOT NULL DEFAULT '',
+			qris_image_url TEXT NOT NULL DEFAULT '',
+			status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','paid','expired','failed')),
+			paid_at TIMESTAMP WITH TIME ZONE,
+			premium_expires_at TIMESTAMP WITH TIME ZONE,
+			expires_at TIMESTAMP WITH TIME ZONE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)

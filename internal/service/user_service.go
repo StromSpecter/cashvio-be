@@ -48,6 +48,7 @@ func (s *userService) CreateUser(ctx context.Context, req *model.CreateUserReque
 		Name:      req.Name,
 		Email:     req.Email,
 		Password:  hashedPassword,
+		Role:      model.RoleFree,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -146,7 +147,7 @@ func (s *userService) Login(ctx context.Context, req *model.LoginRequest) (*mode
 		return nil, errors.New("invalid email or password")
 	}
 
-	token, err := util.GenerateJWT(user.ID.String(), user.Email, s.config.JWT.Secret, s.config.JWT.ExpiresIn)
+	token, err := util.GenerateJWT(user.ID.String(), user.Email, user.Role, s.config.JWT.Secret, s.config.JWT.ExpiresIn)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}

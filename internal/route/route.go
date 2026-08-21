@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, cashHandler *handler.CashHandler, dashboardHandler *handler.DashboardHandler, investmentHandler *handler.InvestmentHandler) *gin.Engine {
+func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *handler.CardHandler, walletHandler *handler.WalletHandler, transactionHandler *handler.TransactionHandler, transferHandler *handler.TransferHandler, cashHandler *handler.CashHandler, dashboardHandler *handler.DashboardHandler, investmentHandler *handler.InvestmentHandler, premiumHandler *handler.PremiumHandler, premiumGuard gin.HandlerFunc) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger())
 	r.Use(middleware.RecoveryMiddleware())
@@ -18,6 +18,8 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 		auth.POST("/register", userHandler.Register)
 		auth.POST("/login", userHandler.Login)
 	}
+
+	r.POST("/api/v1/payments/webhook", premiumHandler.Webhook)
 
 	api := r.Group("/api/v1")
 	api.Use(middleware.JWTAuth(cfg.JWT.Secret))
@@ -67,7 +69,7 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 			transfers.DELETE("/:id", transferHandler.DeleteTransfer)
 		}
 
-		investments := api.Group("/investments")
+		investments := api.Group("/investments", premiumGuard)
 		{
 			investments.POST("", investmentHandler.CreateInvestment)
 			investments.GET("/prices", investmentHandler.GetPrices)
@@ -75,6 +77,15 @@ func Setup(cfg *config.Config, userHandler *handler.UserHandler, cardHandler *ha
 			investments.GET("/:id", investmentHandler.GetInvestment)
 			investments.PUT("/:id", investmentHandler.UpdateInvestment)
 			investments.DELETE("/:id", investmentHandler.DeleteInvestment)
+		}
+
+		premium := api.Group("/premium")
+		{
+			premium.GET("/plans", premiumHandler.GetPlans)
+			premium.POST("/orders", premiumHandler.CreateOrder)
+			premium.GET("/orders", premiumHandler.GetOrders)
+			premium.GET("/orders/:id", premiumHandler.GetOrder)
+			premium.POST("/orders/:id/simulate", premiumHandler.SimulatePaid)
 		}
 
 		cash := api.Group("/cash")

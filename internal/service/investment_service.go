@@ -20,7 +20,7 @@ import (
 type InvestmentService interface {
 	CreateInvestment(ctx context.Context, userID uuid.UUID, req *model.CreateInvestmentRequest) (*model.Investment, error)
 	GetInvestmentByID(ctx context.Context, id, userID uuid.UUID) (*model.Investment, error)
-	GetAllInvestments(ctx context.Context, q *model.InvestmentQuery, userID uuid.UUID) ([]*model.Investment, int, error)
+	GetAllInvestments(ctx context.Context, q *model.InvestmentQuery, userID uuid.UUID) ([]*model.InvestmentGroup, int, error)
 	GetPrices(ctx context.Context, userID uuid.UUID) ([]*model.InvestmentPrice, error)
 	UpdateInvestment(ctx context.Context, id, userID uuid.UUID, req *model.UpdateInvestmentRequest) (*model.Investment, error)
 	DeleteInvestment(ctx context.Context, id, userID uuid.UUID) error
@@ -172,8 +172,8 @@ func (s *investmentService) GetInvestmentByID(ctx context.Context, id, userID uu
 	return inv, nil
 }
 
-func (s *investmentService) GetAllInvestments(ctx context.Context, q *model.InvestmentQuery, userID uuid.UUID) ([]*model.Investment, int, error) {
-	investments, err := s.repo.GetByUserID(ctx, q, userID)
+func (s *investmentService) GetAllInvestments(ctx context.Context, q *model.InvestmentQuery, userID uuid.UUID) ([]*model.InvestmentGroup, int, error) {
+	investments, err := s.repo.GetGroupedByUserID(ctx, q, userID)
 	if err != nil {
 		return nil, 0, errors.New("failed to retrieve investments")
 	}

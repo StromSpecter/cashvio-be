@@ -23,6 +23,15 @@ type Investment struct {
 	UpdatedAt     time.Time  `json:"updated_at" db:"updated_at"`
 }
 
+// InvestmentGroup bundles every purchase of one asset (type+name+ticker+app).
+type InvestmentGroup struct {
+	Type      string        `json:"type"`
+	Name      string        `json:"name"`
+	Ticker    string        `json:"ticker"`
+	App       string        `json:"app"`
+	Purchases []*Investment `json:"purchases"`
+}
+
 type CreateInvestmentRequest struct {
 	Type        string     `json:"type" binding:"required,oneof=stock gold"`
 	Name        string     `json:"name" binding:"required,min=2,max=100"`

@@ -16,6 +16,7 @@ type UserRepository interface {
 	GetAll(ctx context.Context, limit, offset int) ([]*model.User, error)
 	Count(ctx context.Context) (int, error)
 	Update(ctx context.Context, user *model.User) error
+	UpdatePremium(ctx context.Context, id uuid.UUID, role string, premiumExpiresAt *time.Time) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
@@ -29,26 +30,28 @@ func NewUserRepository(db *pgxpool.Pool) UserRepository {
 
 func (r *userRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (id, name, email, password, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO users (id, name, email, password, role, premium_expires_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err := r.db.Exec(ctx, query,
-		user.ID, user.Name, user.Email, user.Password,
-		user.CreatedAt, user.UpdatedAt,
+		user.ID, user.Name, user.Email, user.Password, user.Role,
+		user.PremiumExpiresAt, user.CreatedAt, user.UpdatedAt,
 	)
 	return err
 }
 
 func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
 	query := `
-		SELECT id, name, email, password, created_at, updated_at
+		SELECT id, name, email, password, role, premium_expires_at, created_at, updated_at
 		FROM users WHERE id = $1
 	`
 	user := &model.User{}
+	var role string
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Password,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Name, &user.Email, &user.Password, &role,
+		&user.PremiumExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 	)
+	user.Role = role
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +60,16 @@ func (r *userRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
-		SELECT id, name, email, password, created_at, updated_at
+		SELECT id, name, email, password, role, premium_expires_at, created_at, updated_at
 		FROM users WHERE email = $1
 	`
 	user := &model.User{}
+	var role string
 	err := r.db.QueryRow(ctx, query, email).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Password,
-		&user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Name, &user.Email, &user.Password, &role,
+		&user.PremiumExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 	)
+	user.Role = role
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +78,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*model.U
 
 func (r *userRepository) GetAll(ctx context.Context, limit, offset int) ([]*model.User, error) {
 	query := `
-		SELECT id, name, email, password, created_at, updated_at
+		SELECT id, name, email, password, role, premium_expires_at, created_at, updated_at
 		FROM users ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`
@@ -86,10 +91,12 @@ func (r *userRepository) GetAll(ctx context.Context, limit, offset int) ([]*mode
 	users := make([]*model.User, 0)
 	for rows.Next() {
 		user := &model.User{}
+		var role string
 		err := rows.Scan(
-			&user.ID, &user.Name, &user.Email, &user.Password,
-			&user.CreatedAt, &user.UpdatedAt,
+			&user.ID, &user.Name, &user.Email, &user.Password, &role,
+			&user.PremiumExpiresAt, &user.CreatedAt, &user.UpdatedAt,
 		)
+		user.Role = role
 		if err != nil {
 			return nil, err
 		}
@@ -106,12 +113,23 @@ func (r *userRepository) Count(ctx context.Context) (int, error) {
 
 func (r *userRepository) Update(ctx context.Context, user *model.User) error {
 	query := `
-		UPDATE users SET name = $1, email = $2, password = $3, updated_at = $4
-		WHERE id = $5
+		UPDATE users SET name = $1, email = $2, password = $3, role = $4,
+			premium_expires_at = $5, updated_at = $6
+		WHERE id = $7
 	`
 	_, err := r.db.Exec(ctx, query,
-		user.Name, user.Email, user.Password, time.Now(), user.ID,
+		user.Name, user.Email, user.Password, user.Role,
+		user.PremiumExpiresAt, time.Now(), user.ID,
 	)
+	return err
+}
+
+func (r *userRepository) UpdatePremium(ctx context.Context, id uuid.UUID, role string, premiumExpiresAt *time.Time) error {
+	query := `
+		UPDATE users SET role = $1, premium_expires_at = $2, updated_at = $3
+		WHERE id = $4
+	`
+	_, err := r.db.Exec(ctx, query, role, premiumExpiresAt, time.Now(), id)
 	return err
 }
 
